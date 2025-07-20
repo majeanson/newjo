@@ -247,6 +247,20 @@ export async function selectTeamAction(
       teamAPlayers[1].seatPosition = 2  // A3
       teamBPlayers[1].seatPosition = 3  // B4
 
+      // Set up turn order based on seat positions (0, 1, 2, 3)
+      gameState.turnOrder = [
+        teamAPlayers[0].id,  // A1 (seat 0)
+        teamBPlayers[0].id,  // B2 (seat 1)
+        teamAPlayers[1].id,  // A3 (seat 2)
+        teamBPlayers[1].id   // B4 (seat 3)
+      ]
+
+      // Set random dealer and starter for betting
+      const randomIndex = Math.floor(Math.random() * gameState.turnOrder.length)
+      gameState.dealer = gameState.turnOrder[randomIndex]
+      gameState.starter = gameState.turnOrder[(randomIndex + 1) % gameState.turnOrder.length]
+      gameState.currentTurn = gameState.starter
+
       // Skip seat selection and go directly to betting
       gameState.phase = GamePhase.BETS
     }

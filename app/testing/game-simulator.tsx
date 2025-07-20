@@ -139,6 +139,12 @@ export default function GameSimulator() {
 
       newGameState.players["dummy-diana"].team = Team.B
       newGameState.players["dummy-diana"].seatPosition = 3   // B4
+
+      // Set up proper turn order and current turn
+      newGameState.turnOrder = ["dummy-alice", "dummy-bob", "dummy-charlie", "dummy-diana"]
+      newGameState.dealer = "dummy-alice"
+      newGameState.starter = "dummy-bob"
+      newGameState.currentTurn = "dummy-alice"  // Start betting with Alice
     }
     
     if (phase === GamePhase.CARDS) {
@@ -154,6 +160,12 @@ export default function GameSimulator() {
 
       newGameState.players["dummy-diana"].team = Team.B
       newGameState.players["dummy-diana"].seatPosition = 3   // B4
+
+      // Set up proper turn order and current turn
+      newGameState.turnOrder = ["dummy-alice", "dummy-bob", "dummy-charlie", "dummy-diana"]
+      newGameState.dealer = "dummy-alice"
+      newGameState.starter = "dummy-bob"
+      newGameState.currentTurn = "dummy-alice"
 
       // Add mock cards for each player
       newGameState.playerHands = {
