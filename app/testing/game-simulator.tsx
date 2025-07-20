@@ -63,6 +63,11 @@ export default function GameSimulator() {
 
   const handleGameStateUpdate = (newGameState: GameState) => {
     setGameState(newGameState)
+
+    // Auto-switch to the current turn player's view for seamless testing
+    if (newGameState.currentTurn && newGameState.currentTurn !== activePlayer) {
+      setActivePlayer(newGameState.currentTurn)
+    }
   }
 
   // Remove complex initialization for now
@@ -283,7 +288,10 @@ export default function GameSimulator() {
             </div>
             <div>
               <span className="text-sm text-gray-600">Active View:</span>
-              <Badge variant="default">{DUMMY_PLAYERS.find(p => p.id === activePlayer)?.name}</Badge>
+              <Badge variant={activePlayer === gameState.currentTurn ? "default" : "outline"}>
+                {DUMMY_PLAYERS.find(p => p.id === activePlayer)?.name}
+                {activePlayer === gameState.currentTurn && " 🎯"}
+              </Badge>
             </div>
           </div>
 
