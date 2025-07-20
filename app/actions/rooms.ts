@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { getCurrentUser } from "./auth"
 import { createRoom as dbCreateRoom, getRooms as dbGetRooms, joinRoom as dbJoinRoom } from "@/lib/database"
 import { eventStore } from "@/lib/events"
+import { initializeGame } from "./game-actions"
 
 export async function createRoom(prevState: { error?: string } | null, formData: FormData) {
   console.log("🔍 Creating room - checking user...")
@@ -28,13 +29,22 @@ export async function createRoom(prevState: { error?: string } | null, formData:
     console.log(`🏠 Creating room "${roomName}" for user ${user.id}`)
     const room = await dbCreateRoom(roomName.trim(), user.id)
     console.log(`✅ Room created: ${room.id}`)
-    
+
+    // Initialize game state for the room
+    console.log(`🎮 Initializing game for room ${room.id}`)
+    const gameResult = await initializeGame(room.id)
+    if (gameResult.success) {
+      console.log(`✅ Game initialized for room ${room.id}`)
+    } else {
+      console.log(`⚠️ Game initialization failed: ${gameResult.error}`)
+    }
+
     // Emit real-time event for room creation
     eventStore.emit({
       type: "ROOM_UPDATED",
       roomId: room.id
     })
-    
+
     redirect(`/room/${room.id}`)
   } catch (error) {
     // Don't log redirect errors

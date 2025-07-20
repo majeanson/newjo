@@ -156,6 +156,15 @@ export async function createTestRoom(roomName: string) {
       }
     })
 
+    // Initialize game state for the test room
+    const { initializeGame } = await import("./game-actions")
+    const gameResult = await initializeGame(room.id)
+    if (gameResult.success) {
+      console.log(`✅ Game initialized for test room ${room.id}`)
+    } else {
+      console.log(`⚠️ Game initialization failed for test room: ${gameResult.error}`)
+    }
+
     return { success: true, room }
   } catch (error) {
     console.error("Failed to create test room:", error)
