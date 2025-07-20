@@ -132,6 +132,37 @@ export async function autoJoinRoom(roomId: string) {
   }
 }
 
+// Create test room (simpler version for testing)
+export async function createTestRoom(roomName: string) {
+  try {
+    const user = await getCurrentTestUser()
+    if (!user) {
+      return { success: false, error: "No user session" }
+    }
+
+    const room = await prisma.room.create({
+      data: {
+        name: roomName,
+        hostId: user.id,
+      },
+      include: {
+        host: true,
+        members: {
+          include: { user: true }
+        },
+        _count: {
+          select: { members: true }
+        }
+      }
+    })
+
+    return { success: true, room }
+  } catch (error) {
+    console.error("Failed to create test room:", error)
+    return { success: false, error: "Failed to create test room" }
+  }
+}
+
 // Clear test session (sign out)
 export async function clearTestSession() {
   try {

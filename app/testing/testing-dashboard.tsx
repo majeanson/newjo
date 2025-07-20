@@ -8,8 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Users, Plus, ExternalLink, Copy, Check } from "lucide-react"
 import UserSwitcher from "../components/user-switcher"
-import { switchToTestUser, autoJoinRoom } from "../actions/testing"
-import { createRoom } from "../actions/rooms"
+import { switchToTestUser, autoJoinRoom, createTestRoom } from "../actions/testing"
 import Link from "next/link"
 
 interface TestingDashboardProps {
@@ -32,12 +31,14 @@ export default function TestingDashboard({ currentUser }: TestingDashboardProps)
 
   const handleCreateTestRoom = async () => {
     if (!currentUser || isCreating) return
-    
+
     setIsCreating(true)
     try {
-      const result = await createRoom(roomName)
+      const result = await createTestRoom(roomName)
       if (result.success && result.room) {
         setTestRoomId(result.room.id)
+      } else {
+        console.error("Failed to create room:", result.error)
       }
     } catch (error) {
       console.error("Failed to create test room:", error)
