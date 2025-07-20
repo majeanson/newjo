@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  hostedRooms     Room[]       @relation("RoomHost")
+  roomMemberships RoomMember[]
+  playedCards     PlayedCard[]
+  sessions        UserSession[]
+  
+  @@map("users")
+}
+
+model UserSession {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  sessionId String   @unique @map("session_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  lastSeen  DateTime @default(now()) @map("last_seen")
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("user_sessions")
+}
+
+model Room {
+  id          String   @id @default(cuid())
+  name        String
+  hostId      String   @map("host_id")
+  isActive    Boolean  @default(true) @map("is_active")
+  currentDeck String[] @default([]) @map("current_deck")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  host        User         @relation("RoomHost", fields: [hostId], references: [id], onDelete: Cascade)
+  members     RoomMember[]
+  playedCards PlayedCard[]
+  
+  @@map("rooms")
+}
+
+model RoomMember {
+  id       String   @id @default(cuid())
+  roomId   String   @map("room_id")
+  userId   String   @map("user_id")
+  joinedAt DateTime @default(now()) @map("joined_at")
+  
+  // Relations
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([roomId, userId])
+  @@map("room_members")
+}
+
+model PlayedCard {
+  id       String   @id @default(cuid())
+  roomId   String   @map("room_id")
+  userId   String   @map("user_id")
+  card     String
+  playedAt DateTime @default(now()) @map("played_at")
+  
+  // Relations
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("played_cards")
+}
+
+
+
+
+
+
+
