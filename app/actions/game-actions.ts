@@ -554,12 +554,35 @@ export async function updateGamePlayersAction(roomId: string): Promise<{ success
       }
     }
 
+    // Check if we should auto-start the game with 4 players
+    const playerCount = Object.keys(gameState.players).length
+    if (playerCount === 4 && gameState.phase === GamePhase.TEAM_SELECTION) {
+      console.log(`🎮 Auto-starting game with 4 players in room ${roomId}`)
+
+      // Auto-assign teams and seats (A1, B2, A3, B4 pattern)
+      const playerIds = Object.keys(gameState.players)
+      playerIds.forEach((playerId, index) => {
+        gameState!.players[playerId].team = index % 2 === 0 ? Team.A : Team.B
+        gameState!.players[playerId].seatPosition = index
+      })
+
+      // Move to betting phase
+      gameState.phase = GamePhase.BETS
+      gameState.currentTurn = playerIds[0] // First player starts betting
+
+      console.log(`✅ Game auto-started: Teams assigned, moved to betting phase`)
+    }
+
     await saveRoomGameState(roomId, gameState)
 
     await broadcastGameEvent({
       type: 'game_state_updated',
       roomId,
-      data: { phase: gameState.phase, players: Object.keys(gameState.players).length },
+      data: {
+        phase: gameState.phase,
+        players: playerCount,
+        autoStarted: playerCount === 4 && gameState.phase === GamePhase.BETS
+      },
       timestamp: new Date()
     })
 

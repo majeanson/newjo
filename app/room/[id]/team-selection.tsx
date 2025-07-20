@@ -56,6 +56,24 @@ export default function TeamSelection({ roomId, gameState, currentUserId, onGame
         <p className="text-sm text-gray-600">
           Choose your team to start the game. Each team needs exactly 2 players.
         </p>
+
+        {/* Auto-start indicator */}
+        {Object.keys(gameState.players).length < 4 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p className="text-sm text-blue-700 text-center">
+              🎮 <strong>{Object.keys(gameState.players).length}/4 players</strong> - Game will auto-start when 4 players join!
+            </p>
+          </div>
+        )}
+
+        {Object.keys(gameState.players).length === 4 && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+            <p className="text-sm text-green-700 text-center font-semibold">
+              ✅ 4 players online! Teams will be auto-assigned and game will start automatically.
+            </p>
+          </div>
+        )}
+
         {error && (
           <p className="text-sm text-red-600 bg-red-50 p-2 rounded">{error}</p>
         )}
