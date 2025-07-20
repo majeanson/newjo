@@ -6,10 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { GamePhase, GameState } from "@/lib/game-types"
 import { useGameState } from "@/hooks/use-game-state"
-import WaitingPhase from "./waiting-phase"
+import { Button } from "@/components/ui/button"
+import { Play, Users } from "lucide-react"
 import TeamSelection from "./team-selection"
 import BettingPhase from "./betting-phase"
 import CardGame from "./card-game"
+import { forceAutoStartAction } from "../../actions/game-actions"
 
 interface GamePhasesProps {
   roomId: string
@@ -36,6 +38,18 @@ export default function GamePhases({ roomId, gameState: initialGameState, curren
     // The real-time system will handle updates automatically
     // This is mainly for immediate UI feedback
     console.log('Game state updated locally:', newGameState)
+  }
+
+  // Handle start game for waiting phase
+  const handleStartGame = async () => {
+    try {
+      const result = await forceAutoStartAction(roomId)
+      if (result.success && result.gameState) {
+        handleGameStateUpdate(result.gameState)
+      }
+    } catch (error) {
+      console.error("Start game error:", error)
+    }
   }
 
   return (
@@ -82,12 +96,59 @@ export default function GamePhases({ roomId, gameState: initialGameState, curren
       {/* Phase-specific content */}
       <div className="w-full">
         {gameState.phase === GamePhase.WAITING && (
-          <WaitingPhase
-            roomId={roomId}
-            gameState={gameState}
-            currentUserId={currentUserId}
-            onGameStateUpdate={handleGameStateUpdate}
-          />
+          <Card className="max-w-2xl mx-auto">
+            <CardContent className="text-center py-8">
+              <h2 className="text-xl font-semibold mb-4 flex items-center justify-center gap-2">
+                <Users className="h-6 w-6" />
+                Waiting for Players
+              </h2>
+              <p className="text-gray-600 mb-6">
+                {Object.keys(gameState.players).length === 4
+                  ? "All players ready!"
+                  : `Need ${4 - Object.keys(gameState.players).length} more player${4 - Object.keys(gameState.players).length !== 1 ? 's' : ''} to start the game.`
+                }
+              </p>
+
+              {/* Player Count Display */}
+              <div className="mb-6">
+                <div className="space-y-2">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="flex items-center justify-center">
+                      <div className={`w-4 h-4 rounded-full mr-2 ${
+                        i < Object.keys(gameState.players).length ? 'bg-green-500' : 'bg-gray-300'
+                      }`} />
+                      <span className={`text-sm ${
+                        i < Object.keys(gameState.players).length ? 'text-green-700' : 'text-gray-500'
+                      }`}>
+                        Player {i + 1} {i < Object.keys(gameState.players).length ? '✓' : 'waiting...'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Start Game Button */}
+              {Object.keys(gameState.players).length === 4 && (
+                <div className="space-y-4">
+                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <h3 className="font-semibold text-green-800 mb-2">🎮 Ready to Start!</h3>
+                    <p className="text-sm text-green-700">
+                      All 4 players have joined. Teams will be auto-assigned (A1, B2, A3, B4) and the game will begin!
+                    </p>
+                  </div>
+
+                  <Button
+                    onClick={handleStartGame}
+                    size="lg"
+                    className="w-full bg-green-600 hover:bg-green-700"
+                  >
+                    <Play className="h-4 w-4 mr-2" />
+                    🎮 Start Game Now
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         )}
 
         {gameState.phase === GamePhase.TEAM_SELECTION && (
