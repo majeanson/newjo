@@ -3,7 +3,16 @@
 import { revalidatePath } from "next/cache"
 import { getCurrentUser } from "./auth"
 import { prisma } from "@/lib/prisma"
-import { GameState, GamePhase, Card, Team, Player } from "@/lib/game-types"
+import { GameState, GamePhase, Card, Team, Player, Bet } from "@/lib/game-types"
+
+// Type for round result
+interface RoundResult {
+  teamAScore: number
+  teamBScore: number
+  bettingTeamWon: boolean
+  round: number
+  highestBet: Bet
+}
 import {
   selectTeam,
   selectSeat,
@@ -37,36 +46,54 @@ export async function getGameState(roomId: string): Promise<GameState | null> {
 
     if (!room) return null
 
-    // Parse game state from room data or create initial state
-    const gameData = room.currentDeck as any // This will store our game state
-    
-    if (gameData && gameData.gameState) {
-      return gameData.gameState as GameState
-    }
-
-    // Create initial game state
+    // Build game state from room data
     const players: Record<string, Player> = {}
+    const playerTeams = (room.playerTeams as Record<string, Team>) || {}
+    const playerSeats = (room.playerSeats as Record<string, number>) || {}
+    const playerReady = (room.playerReady as Record<string, boolean>) || {}
+
     room.members.forEach(member => {
       players[member.userId] = {
         id: member.userId,
         name: member.user.name,
-        isReady: false
+        team: playerTeams[member.userId],
+        seatPosition: playerSeats[member.userId],
+        isReady: playerReady[member.userId] || false
       }
     })
 
+    // Build turn order from seat positions
+    const turnOrder = Object.values(players)
+      .filter(p => p.seatPosition !== undefined)
+      .sort((a, b) => (a.seatPosition || 0) - (b.seatPosition || 0))
+      .map(p => p.id)
+
+    // Build highest bet if exists
+    let highestBet: any = undefined
+    if (room.highestBetUserId && room.highestBetValue !== null) {
+      highestBet = {
+        playerId: room.highestBetUserId,
+        value: room.highestBetValue,
+        trump: room.highestBetTrump || false,
+        timestamp: new Date()
+      }
+    }
+
     return {
-      phase: GamePhase.TEAM_SELECTION,
-      round: 1,
-      currentTurn: '',
-      dealer: '',
-      starter: '',
+      phase: (room.gamePhase as GamePhase) || GamePhase.TEAM_SELECTION,
+      round: room.currentRound || 1,
+      currentTurn: room.currentTurn || '',
+      dealer: room.dealerUserId || '',
+      starter: room.starterUserId || '',
+      trump: room.trumpColor as any,
+      highestBet,
       players,
-      bets: {},
-      playedCards: {},
-      playerHands: {},
-      wonTricks: {},
-      scores: {},
-      turnOrder: []
+      bets: (room.playerBets as Record<string, any>) || {},
+      playedCards: (room.playedCards as Record<string, Card>) || {},
+      playerHands: (room.playerHands as Record<string, Card[]>) || {},
+      wonTricks: (room.tricksWon as Record<string, number>) || {},
+      scores: (room.gameScores as Record<string, number>) || {},
+      turnOrder
     }
   } catch (error) {
     console.error("Failed to get game state:", error)
@@ -76,10 +103,41 @@ export async function getGameState(roomId: string): Promise<GameState | null> {
 
 // Save game state to database
 async function saveGameState(roomId: string, gameState: GameState): Promise<void> {
+  // Extract team assignments
+  const playerTeams: Record<string, string> = {}
+  const playerSeats: Record<string, number> = {}
+  const playerReady: Record<string, boolean> = {}
+
+  Object.values(gameState.players).forEach(player => {
+    if (player.team) playerTeams[player.id] = player.team
+    if (player.seatPosition !== undefined) playerSeats[player.id] = player.seatPosition
+    playerReady[player.id] = player.isReady
+  })
+
   await prisma.room.update({
     where: { id: roomId },
     data: {
-      currentDeck: { gameState } as any
+      gamePhase: gameState.phase,
+      currentRound: gameState.round,
+      currentTurn: gameState.currentTurn || null,
+      dealerUserId: gameState.dealer || null,
+      starterUserId: gameState.starter || null,
+      trumpColor: gameState.trump || null,
+
+      // JSON fields
+      playerHands: gameState.playerHands as object,
+      playedCards: gameState.playedCards as object,
+      playerBets: gameState.bets as object,
+      playerTeams: playerTeams as object,
+      playerSeats: playerSeats as object,
+      playerReady: playerReady as object,
+      tricksWon: gameState.wonTricks as object,
+      gameScores: gameState.scores as object,
+
+      // Highest bet
+      highestBetUserId: gameState.highestBet?.playerId || null,
+      highestBetValue: gameState.highestBet?.value || null,
+      highestBetTrump: gameState.highestBet?.trump || null,
     }
   })
 }
@@ -361,7 +419,7 @@ export async function getCurrentTrick(
 // Process round scoring
 export async function processRoundScoring(
   roomId: string
-): Promise<{ success: boolean; error?: string; gameState?: GameState; roundResult?: any }> {
+): Promise<{ success: boolean; error?: string; gameState?: GameState; roundResult?: RoundResult }> {
   try {
     const user = await getCurrentUser()
     if (!user) {

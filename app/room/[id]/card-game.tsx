@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge"
 import { GameState, Card as GameCard } from "@/lib/game-types"
 
 interface CardGameProps {
-  roomId: string
   gameState: GameState
   currentUserId: string
 }

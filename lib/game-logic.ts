@@ -5,7 +5,6 @@ import {
   Card, 
   Bet, 
   GameState, 
-  TrickResult,
   CARDS_PER_PLAYER,
   MAX_PLAYERS,
   CARD_VALUES,

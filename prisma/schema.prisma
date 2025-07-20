@@ -12,13 +12,12 @@ model User {
   id        String   @id @default(cuid())
   name      String   @unique
   createdAt DateTime @default(now()) @map("created_at")
-  
+
   // Relations
   hostedRooms     Room[]       @relation("RoomHost")
   roomMemberships RoomMember[]
-  playedCards     PlayedCard[]
   sessions        UserSession[]
-  
+
   @@map("users")
 }
 
@@ -40,15 +39,38 @@ model Room {
   name        String
   hostId      String   @map("host_id")
   isActive    Boolean  @default(true) @map("is_active")
-  currentDeck String[] @default([]) @map("current_deck")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
-  
+
+  // Game State - stored as JSON
+  gamePhase     String?  @default("waiting") @map("game_phase") // waiting, team_selection, seat_selection, bets, cards, trick_scoring, round_end, game_end
+  currentRound  Int?     @default(1) @map("current_round")
+  currentTrick  Int?     @default(1) @map("current_trick")
+  currentTurn   String?  @map("current_turn") // userId of player whose turn it is
+  dealerUserId  String?  @map("dealer_user_id") // userId of current dealer
+  starterUserId String?  @map("starter_user_id") // userId who starts the round
+  trumpColor    String?  @map("trump_color") // red, blue, green, brown
+
+  // Game Data - stored as JSON objects
+  playerHands   Json?    @map("player_hands") // { userId: Card[] }
+  playedCards   Json?    @map("played_cards") // { userId: Card } - current trick
+  playerBets    Json?    @map("player_bets") // { userId: Bet }
+  playerTeams   Json?    @map("player_teams") // { userId: 'A' | 'B' }
+  playerSeats   Json?    @map("player_seats") // { userId: number } - seat positions 0-3
+  playerReady   Json?    @map("player_ready") // { userId: boolean }
+  tricksWon     Json?    @map("tricks_won") // { userId: number } - tricks won this round
+  gameScores    Json?    @map("game_scores") // { userId: number } - total game scores
+  roundHistory  Json?    @map("round_history") // Array of round results
+
+  // Highest bet info
+  highestBetUserId String? @map("highest_bet_user_id")
+  highestBetValue  Int?    @map("highest_bet_value")
+  highestBetTrump  Boolean? @map("highest_bet_trump")
+
   // Relations
   host        User         @relation("RoomHost", fields: [hostId], references: [id], onDelete: Cascade)
   members     RoomMember[]
-  playedCards PlayedCard[]
-  
+
   @@map("rooms")
 }
 
@@ -66,19 +88,7 @@ model RoomMember {
   @@map("room_members")
 }
 
-model PlayedCard {
-  id       String   @id @default(cuid())
-  roomId   String   @map("room_id")
-  userId   String   @map("user_id")
-  card     String
-  playedAt DateTime @default(now()) @map("played_at")
-  
-  // Relations
-  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@map("played_cards")
-}
+
 
 
 
