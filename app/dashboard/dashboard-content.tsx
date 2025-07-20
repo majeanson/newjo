@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
-import { Users, Plus, LogOut, Home } from "lucide-react"
+import { Users, Plus, LogOut, Home, TestTube } from "lucide-react"
 import Link from "next/link"
 
 type User = {
@@ -57,14 +57,22 @@ export default function DashboardContent({ user, rooms }: DashboardContentProps)
             <h1 className="text-3xl font-bold text-gray-900">Welcome, {user.name}!</h1>
             <p className="text-gray-600">Create a room or join an existing one</p>
           </div>
-          <Button 
-            type="button" 
-            variant="outline"
-            onClick={() => signOut()}
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Sign Out
-          </Button>
+          <div className="flex gap-2">
+            <Link href="/testing">
+              <Button variant="outline">
+                <TestTube className="w-4 h-4 mr-2" />
+                Multi-Tab Testing
+              </Button>
+            </Link>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => signOut()}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
         </div>
 
         <div className="grid md:grid-cols-2 gap-8">
