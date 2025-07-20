@@ -229,7 +229,7 @@ export default function BettingPhase({ roomId, gameState, currentUserId, onGameS
                   <Checkbox
                     id="trump"
                     checked={!isTrump}
-                    onCheckedChange={(checked) => setIsTrump(checked as boolean)}
+                    onCheckedChange={(checked) => setIsTrump(!checked as boolean)}
                   />
                   <label htmlFor="trump" className="text-sm">
                     Without Trump (higher priority if tied, double the points won/loss)

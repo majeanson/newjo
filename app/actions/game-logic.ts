@@ -3,7 +3,21 @@
 import { revalidatePath } from "next/cache"
 import { getCurrentUser } from "./auth"
 import { prisma } from "@/lib/prisma"
-import { GameState, GamePhase, Card, Team, Player, Bet } from "@/lib/game-types"
+import { GameState, GamePhase, Card, Team, Player, Bet, Bets } from "@/lib/game-types"
+
+// Broadcast game event to all players in room
+async function broadcastGameEvent(event: { type: string; roomId: string; userId?: string; data?: any; timestamp: Date }): Promise<void> {
+  const { eventStore } = await import("@/lib/events")
+  eventStore.emit({
+    type: event.type as any,
+    roomId: event.roomId,
+    ...(event.userId && { playerId: event.userId }),
+    ...(event.data && event.data)
+  })
+
+  revalidatePath(`/room/${event.roomId}`)
+  console.log('Game Event:', event)
+}
 
 // Type for round result
 interface RoundResult {
@@ -28,7 +42,6 @@ import {
   calculateRoundScores,
   processRoundEnd
 } from "@/lib/game-logic"
-import { Bets } from "@/lib/game-types"
 
 // Get current game state for a room
 export async function getGameState(roomId: string): Promise<GameState | null> {
@@ -240,11 +253,41 @@ export async function placeBetAction(
 
       // Return the game state with cards dealt
       await saveGameState(roomId, gameStateWithCards)
+
+      // Broadcast that all bets are complete and cards phase started
+      await broadcastGameEvent({
+        type: 'betting_complete',
+        roomId,
+        userId,
+        data: {
+          phase: 'cards',
+          highestBet: highestBet?.value,
+          highestBetter: highestBet?.playerId,
+          trump: highestBet?.trump
+        },
+        timestamp: new Date()
+      })
+
       revalidatePath(`/room/${roomId}`)
       return { success: true, gameState: gameStateWithCards }
     }
 
     await saveGameState(roomId, newGameState)
+
+    // Broadcast that a bet was placed
+    await broadcastGameEvent({
+      type: 'bet_placed',
+      roomId,
+      userId,
+      data: {
+        betValue,
+        trump,
+        playerName: newGameState.players[userId]?.name,
+        betsRemaining: newGameState.turnOrder.length - Object.keys(newGameState.bets).length
+      },
+      timestamp: new Date()
+    })
+
     revalidatePath(`/room/${roomId}`)
 
     return { success: true, gameState: newGameState }
