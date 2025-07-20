@@ -17,11 +17,19 @@ export interface GameEvent {
 
 // Broadcast game event to all players in room
 async function broadcastGameEvent(event: GameEvent): Promise<void> {
-  // For now, we'll use revalidatePath to trigger updates
-  // In a real implementation, you'd use WebSockets or Server-Sent Events
+  // Emit to event store for real-time SSE updates
+  const { eventStore } = await import("@/lib/events")
+  eventStore.emit({
+    type: event.type as any,
+    roomId: event.roomId,
+    ...(event.userId && { playerId: event.userId }),
+    ...(event.data && event.data)
+  })
+
+  // Also revalidate path for page refreshes
   revalidatePath(`/room/${event.roomId}`)
-  
-  // You could also store events in database for history/debugging
+
+  // Log for debugging
   console.log('Game Event:', event)
 }
 

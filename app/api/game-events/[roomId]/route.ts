@@ -26,62 +26,69 @@ export async function GET(
     const stream = new ReadableStream({
       start(controller) {
         const encoder = new TextEncoder()
+        let closed = false
+
+        const sendEvent = (data: any) => {
+          if (closed) return
+          try {
+            const message = `data: ${JSON.stringify(data)}\n\n`
+            controller.enqueue(encoder.encode(message))
+          } catch (error) {
+            console.error('Error sending SSE event:', error)
+            if (!closed) {
+              closed = true
+              controller.close()
+            }
+          }
+        }
 
         // Send initial connection message
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+        sendEvent({
           type: 'connected',
           timestamp: new Date().toISOString()
-        })}\n\n`))
+        })
 
         // Send initial game state
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+        sendEvent({
           type: 'game_state',
           data: gameState,
           timestamp: new Date().toISOString()
-        })}\n\n`))
+        })
 
         // Subscribe to real-time events for this room
         const unsubscribe = eventStore.subscribe(roomId, (event) => {
-          try {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-              type: 'game_event',
-              data: event,
-              timestamp: new Date().toISOString()
-            })}\n\n`))
-          } catch (error) {
-            console.error('Error sending game event:', error)
-          }
+          sendEvent({
+            type: 'game_event',
+            data: event,
+            timestamp: new Date().toISOString()
+          })
         })
 
         // Set up periodic heartbeat (every 30 seconds)
         const heartbeat = setInterval(() => {
-          try {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-              type: 'heartbeat',
-              timestamp: new Date().toISOString()
-            })}\n\n`))
-          } catch (error) {
-            console.error('Heartbeat error:', error)
-            clearInterval(heartbeat)
-            unsubscribe()
-            try {
-              controller.close()
-            } catch (closeError) {
-              console.log('Controller already closed')
-            }
-          }
+          sendEvent({
+            type: 'heartbeat',
+            timestamp: new Date().toISOString()
+          })
         }, 30000)
 
         // Clean up on close
-        request.signal.addEventListener('abort', () => {
+        const cleanup = () => {
+          if (closed) return
+          closed = true
           clearInterval(heartbeat)
           unsubscribe()
           try {
             controller.close()
           } catch (error) {
-            console.log('Controller already closed')
+            // Controller already closed
           }
-        })
+        }
+
+        request.signal.addEventListener('abort', cleanup)
+
+        // Also cleanup if the controller errors
+        controller.error = cleanup
       }
     })
 
