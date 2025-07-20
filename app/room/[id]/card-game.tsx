@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { GameState, Card as GameCard } from "@/lib/game-types"
+import { playCardAction } from "@/app/actions/game-logic"
 
 interface CardGameProps {
   roomId: string
@@ -13,11 +14,7 @@ interface CardGameProps {
   onGameStateUpdate: (newGameState: GameState) => void
 }
 
-// Mock card playing action - replace with real action
-async function playCardAction(roomId: string, cardId: string) {
-  console.log(`Playing card ${cardId} in room ${roomId}`)
-  return { success: true, gameState: null }
-}
+
 
 export default function CardGame({ roomId, gameState, currentUserId, onGameStateUpdate }: CardGameProps) {
   const [selectedCard, setSelectedCard] = useState<GameCard | null>(null)
@@ -41,7 +38,7 @@ export default function CardGame({ roomId, gameState, currentUserId, onGameState
     setError(null)
 
     try {
-      const result = await playCardAction(roomId, selectedCard.id)
+      const result = await playCardAction(roomId, selectedCard.id, currentUserId)
 
       if (result.success && result.gameState) {
         onGameStateUpdate(result.gameState)

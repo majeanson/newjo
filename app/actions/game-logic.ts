@@ -293,12 +293,18 @@ export async function setPlayerReady(
 // Card playing actions
 export async function playCardAction(
   roomId: string,
-  cardId: string
+  cardId: string,
+  playerId?: string
 ): Promise<{ success: boolean; error?: string; gameState?: GameState }> {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return { success: false, error: "Not authenticated" }
+    // Use provided playerId (for simulator) or get from session (for real users)
+    let userId = playerId
+    if (!userId) {
+      const user = await getCurrentUser()
+      if (!user) {
+        return { success: false, error: "Not authenticated" }
+      }
+      userId = user.id
     }
 
     const gameState = await getGameState(roomId)
@@ -310,23 +316,23 @@ export async function playCardAction(
       return { success: false, error: "Not in card playing phase" }
     }
 
-    if (gameState.currentTurn !== user.id) {
+    if (gameState.currentTurn !== userId) {
       return { success: false, error: "Not your turn" }
     }
 
     // Find the card in player's hand
-    const playerHand = gameState.playerHands[user.id] || []
+    const playerHand = gameState.playerHands[userId] || []
     const card = playerHand.find(c => c.id === cardId)
 
     if (!card) {
       return { success: false, error: "Card not found in your hand" }
     }
 
-    if (!canPlayCard(gameState, user.id, card)) {
+    if (!canPlayCard(gameState, userId, card)) {
       return { success: false, error: "Cannot play this card" }
     }
 
-    let newGameState = playCard(gameState, user.id, card)
+    let newGameState = playCard(gameState, userId, card)
 
     // Check if trick is complete
     if (isTrickComplete(newGameState)) {
