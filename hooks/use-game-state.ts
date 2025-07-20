@@ -47,14 +47,15 @@ export function useGameState({ roomId, initialGameState, onGameEvent }: UseGameS
     if (!roomId) return
 
     let eventSource: EventSource | null = null
+    let reconnectTimeout: NodeJS.Timeout | null = null
 
     const connect = () => {
       try {
-        console.log('Connecting to SSE for room:', roomId)
+        console.log('🔌 Connecting to SSE for room:', roomId)
         eventSource = new EventSource(`/api/game-events/${roomId}`)
 
         eventSource.onopen = () => {
-          console.log('SSE connected successfully')
+          console.log('✅ SSE connected successfully')
           setIsConnected(true)
           setError(null)
         }
@@ -99,13 +100,22 @@ export function useGameState({ roomId, initialGameState, onGameEvent }: UseGameS
         }
 
         eventSource.onerror = (error) => {
-          console.error('SSE connection error:', error)
+          console.error('❌ SSE connection error:', error)
           setIsConnected(false)
           setError('Connection lost')
 
-          // Close the connection to prevent automatic reconnection
+          // Close the connection and attempt reconnect after delay
           if (eventSource) {
             eventSource.close()
+          }
+
+          // Only reconnect if not in development hot reload
+          if (!reconnectTimeout && process.env.NODE_ENV === 'production') {
+            reconnectTimeout = setTimeout(() => {
+              console.log('🔄 Attempting SSE reconnect...')
+              reconnectTimeout = null
+              connect()
+            }, 3000)
           }
         }
       } catch (error) {
@@ -121,8 +131,11 @@ export function useGameState({ roomId, initialGameState, onGameEvent }: UseGameS
     // Cleanup on unmount
     return () => {
       if (eventSource) {
-        console.log('Closing SSE connection')
+        console.log('🔌 Closing SSE connection')
         eventSource.close()
+      }
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout)
       }
     }
   }, [roomId, refreshGameState, onGameEvent])

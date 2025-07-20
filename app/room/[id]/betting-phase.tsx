@@ -22,6 +22,44 @@ export default function BettingPhase({ roomId, gameState, currentUserId, onGameS
   const [isPlacing, setIsPlacing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Check if all bets are complete and poll for phase transition
+  useEffect(() => {
+    const allBets = Object.values(gameState.bets).filter(bet => bet !== null)
+    const totalPlayers = gameState.turnOrder?.length || 0
+
+    if (allBets.length === totalPlayers && totalPlayers > 0) {
+      console.log('🎯 All bets detected on client, checking for phase transition...')
+
+      // Poll for phase transition every 2 seconds for up to 10 seconds
+      let pollCount = 0
+      const maxPolls = 5
+
+      const pollForTransition = async () => {
+        try {
+          const response = await fetch(`/api/game-state/${roomId}`)
+          if (response.ok) {
+            const result = await response.json()
+            if (result.gameState && result.gameState.phase !== 'bets') {
+              console.log('✅ Phase transition detected:', result.gameState.phase)
+              onGameStateUpdate(result.gameState)
+              return
+            }
+          }
+
+          pollCount++
+          if (pollCount < maxPolls) {
+            setTimeout(pollForTransition, 2000)
+          }
+        } catch (error) {
+          console.error('Error polling for phase transition:', error)
+        }
+      }
+
+      // Start polling after a short delay
+      setTimeout(pollForTransition, 1000)
+    }
+  }, [gameState.bets, gameState.turnOrder, roomId, onGameStateUpdate])
+
   const currentPlayer = gameState.players[currentUserId]
   const isMyTurn = gameState.currentTurn === currentUserId
   const playerBet = gameState.bets[currentUserId]
