@@ -1,10 +1,12 @@
-import { 
-  GamePhase, 
-  CardColor, 
-  Team, 
-  Card, 
-  Bet, 
-  GameState, 
+import {
+  GamePhase,
+  CardColor,
+  Team,
+  Card,
+  Bet,
+  GameState,
+  Bets,
+  BetsNumericValue,
   CARDS_PER_PLAYER,
   MAX_PLAYERS,
   CARD_VALUES,
@@ -106,10 +108,11 @@ export function canPlaceBet(gameState: GameState, playerId: string, bet: Omit<Be
   return true
 }
 
-export function placeBet(gameState: GameState, playerId: string, betValue: number, trump: boolean): GameState {
+export function placeBet(gameState: GameState, playerId: string, betValue: Bets, trump: boolean): GameState {
   const bet: Bet = {
     playerId,
-    value: betValue,
+    betValue,
+    value: BetsNumericValue[betValue],
     trump,
     timestamp: new Date()
   }

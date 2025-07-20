@@ -17,6 +17,26 @@ export enum CardColor {
   BROWN = 'brown'
 }
 
+export enum Bets {
+  SKIP = 'skip',
+  SEVEN = 'seven',
+  EIGHT = 'eight',
+  NINE = 'nine',
+  TEN = 'ten',
+  ELEVEN = 'eleven',
+  TWELVE = 'twelve',
+}
+
+export const BetsNumericValue: Record<Bets, number> = {
+  [Bets.SKIP]: 0,
+  [Bets.SEVEN]: 7,
+  [Bets.EIGHT]: 8,
+  [Bets.NINE]: 9,
+  [Bets.TEN]: 10,
+  [Bets.ELEVEN]: 11,
+  [Bets.TWELVE]: 12,
+}
+
 export enum Team {
   A = 'A',
   B = 'B'
@@ -33,9 +53,10 @@ export interface Card {
 
 export interface Bet {
   playerId: string
-  value: number // 0 = skip, 1-8 = bet amount
+  betValue: Bets // The bet type (SKIP, SEVEN, EIGHT, etc.)
+  value: number // Numeric value from BetsNumericValue
   trump: boolean // true if betting with trump
-  timestamp: Date
+  timestamp?: Date
 }
 
 export interface Player {

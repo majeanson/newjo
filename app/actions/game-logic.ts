@@ -28,6 +28,7 @@ import {
   calculateRoundScores,
   processRoundEnd
 } from "@/lib/game-logic"
+import { Bets } from "@/lib/game-types"
 
 // Get current game state for a room
 export async function getGameState(roomId: string): Promise<GameState | null> {
@@ -190,7 +191,7 @@ export async function selectPlayerTeam(
 // Betting action
 export async function placeBetAction(
   roomId: string,
-  betValue: number,
+  betValue: Bets,
   trump: boolean,
   playerId?: string
 ): Promise<{ success: boolean; error?: string; gameState?: GameState }> {

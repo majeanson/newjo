@@ -4,11 +4,9 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Coins, Crown, Clock } from "lucide-react"
-import { GameState, Team } from "@/lib/game-types"
+import { Coins, Crown, Clock, X } from "lucide-react"
+import { GameState, Team, Bets, BetsNumericValue } from "@/lib/game-types"
 import { placeBetAction } from "@/app/actions/game-logic"
 
 interface BettingPhaseProps {
@@ -19,7 +17,7 @@ interface BettingPhaseProps {
 }
 
 export default function BettingPhase({ roomId, gameState, currentUserId, onGameStateUpdate }: BettingPhaseProps) {
-  const [betValue, setBetValue] = useState(0)
+  const [selectedBet, setSelectedBet] = useState<Bets | null>(null)
   const [isTrump, setIsTrump] = useState(false)
   const [isPlacing, setIsPlacing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -31,17 +29,17 @@ export default function BettingPhase({ roomId, gameState, currentUserId, onGameS
   const highestBet = gameState.highestBet
 
   const handlePlaceBet = async () => {
-    if (isPlacing || !isMyTurn) return
-    
+    if (isPlacing || !isMyTurn || !selectedBet) return
+
     setIsPlacing(true)
     setError(null)
 
     try {
-      const result = await placeBetAction(roomId, betValue, isTrump, currentUserId)
-      
+      const result = await placeBetAction(roomId, selectedBet, isTrump, currentUserId)
+
       if (result.success && result.gameState) {
         onGameStateUpdate(result.gameState)
-        setBetValue(0)
+        setSelectedBet(null)
         setIsTrump(false)
       } else {
         setError(result.error || "Failed to place bet")
@@ -52,6 +50,30 @@ export default function BettingPhase({ roomId, gameState, currentUserId, onGameS
     } finally {
       setIsPlacing(false)
     }
+  }
+
+  const getBetLabel = (bet: Bets) => {
+    if (bet === Bets.SKIP) return "Skip"
+    return `${BetsNumericValue[bet]} tricks`
+  }
+
+  const isBetAvailable = (bet: Bets) => {
+    if (bet === Bets.SKIP) return true
+
+    if (!highestBet || highestBet.betValue === Bets.SKIP) {
+      return BetsNumericValue[bet] >= 7 // Minimum bet is 7
+    }
+
+    const currentHighest = BetsNumericValue[highestBet.betValue]
+    const thisBetValue = BetsNumericValue[bet]
+
+    // Must bet higher than current highest
+    if (thisBetValue > currentHighest) return true
+
+    // Same value only allowed if upgrading from trump to no-trump
+    if (thisBetValue === currentHighest && highestBet.trump && !isTrump) return true
+
+    return false
   }
 
   const getPlayerTeamColor = (playerId: string) => {
@@ -168,61 +190,66 @@ export default function BettingPhase({ roomId, gameState, currentUserId, onGameS
             <h3 className="font-semibold mb-4 text-center text-green-800">Place Your Bet</h3>
             
             <div className="space-y-4">
+              {/* Bet Selection Grid */}
               <div>
-                <Label htmlFor="bet-value" className="text-sm font-medium">
-                  Bet Value (0 to skip, 1-8 to bet)
-                </Label>
-                <Input
-                  id="bet-value"
-                  type="number"
-                  min="0"
-                  max="8"
-                  value={betValue}
-                  onChange={(e) => setBetValue(parseInt(e.target.value) || 0)}
-                  className="mt-1"
-                  placeholder="Enter your bet..."
-                />
-                <p className="text-xs text-gray-600 mt-1">
-                  Bet 0 to skip your turn, or 1-8 for the number of tricks you think you can win.
-                </p>
+                <div className="text-sm font-medium mb-3">Select your bet:</div>
+                <div className="grid grid-cols-4 gap-2">
+                  {Object.values(Bets).map((bet) => (
+                    <Button
+                      key={bet}
+                      variant={selectedBet === bet ? "default" : "outline"}
+                      size="sm"
+                      disabled={!isBetAvailable(bet)}
+                      onClick={() => setSelectedBet(bet)}
+                      className={`${
+                        selectedBet === bet ? "ring-2 ring-green-500" : ""
+                      } ${
+                        !isBetAvailable(bet) ? "opacity-50 cursor-not-allowed" : ""
+                      }`}
+                    >
+                      {bet === Bets.SKIP ? (
+                        <div className="flex items-center gap-1">
+                          <X className="h-3 w-3" />
+                          Skip
+                        </div>
+                      ) : (
+                        <div className="text-center">
+                          <div className="font-bold">{BetsNumericValue[bet]}</div>
+                          <div className="text-xs">tricks</div>
+                        </div>
+                      )}
+                    </Button>
+                  ))}
+                </div>
               </div>
-              
-              {betValue > 0 && (
+
+              {/* Trump Selection */}
+              {selectedBet && selectedBet !== Bets.SKIP && (
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="trump"
                     checked={isTrump}
                     onCheckedChange={(checked) => setIsTrump(checked as boolean)}
                   />
-                  <Label htmlFor="trump" className="text-sm">
+                  <label htmlFor="trump" className="text-sm">
                     With Trump (higher priority if tied)
-                  </Label>
+                  </label>
                 </div>
               )}
 
-              <div className="flex gap-3">
-                <Button 
-                  onClick={handlePlaceBet}
-                  disabled={isPlacing}
-                  className="flex-1"
-                  size="lg"
-                >
-                  {isPlacing ? "Placing..." : 
-                   betValue === 0 ? "Skip Turn" : 
-                   `Bet ${betValue}${isTrump ? " (Trump)" : ""}`}
-                </Button>
-                
-                <Button 
-                  onClick={() => {
-                    setBetValue(0)
-                    setIsTrump(false)
-                  }}
-                  variant="outline"
-                  disabled={isPlacing}
-                >
-                  Clear
-                </Button>
-              </div>
+              {error && (
+                <div className="text-red-600 text-sm bg-red-50 p-2 rounded">
+                  {error}
+                </div>
+              )}
+
+              <Button
+                onClick={handlePlaceBet}
+                disabled={isPlacing || !selectedBet}
+                className="w-full"
+              >
+                {isPlacing ? "Placing Bet..." : selectedBet ? `Place Bet: ${getBetLabel(selectedBet)}${isTrump && selectedBet !== Bets.SKIP ? " (Trump)" : ""}` : "Select a bet"}
+              </Button>
             </div>
           </div>
         )}
