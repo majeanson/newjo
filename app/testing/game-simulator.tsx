@@ -13,7 +13,7 @@ import CardGame from "../room/[id]/card-game"
 import { Users, RotateCcw } from "lucide-react"
 
 // You can update this with your actual room ID
-const SIMULATOR_ROOM_ID = "simulator-room" // Replace with your room ID
+const SIMULATOR_ROOM_ID = "cmdb1prsm0004ud64qy6xfix6" // Replace with your room ID
 
 const TEST_PLAYERS = [
   { id: "alice", name: "Alice", color: "bg-red-100 border-red-300 text-red-800" },
