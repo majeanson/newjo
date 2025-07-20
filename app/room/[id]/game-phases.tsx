@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Checkbox } from "@/components/ui/checkbox"
 import { GamePhase, Team, GameState } from "@/lib/game-types"
+import CardGame from "./card-game"
 
 interface GamePhasesProps {
   roomId: string
@@ -63,14 +64,27 @@ export default function GamePhases({ roomId, gameState, currentUserId }: GamePha
         )}
 
         {gameState.phase === GamePhase.CARDS && (
+          <div className="w-full">
+            <CardGame
+              roomId={roomId}
+              gameState={gameState}
+              currentUserId={currentUserId}
+            />
+          </div>
+        )}
+
+        {gameState.phase === GamePhase.TRICK_SCORING && (
           <div>
-            <p className="text-sm text-gray-600">Card playing phase</p>
-            {gameState.highestBet && (
-              <p className="text-sm">
-                Highest bet: {gameState.highestBet.value} by {gameState.players[gameState.highestBet.playerId]?.name}
-              </p>
-            )}
-            {isMyTurn && <p className="text-green-600 font-semibold">It's your turn to play!</p>}
+            <p className="text-sm text-gray-600">Round complete - calculating scores...</p>
+            <Button
+              onClick={() => {
+                // We'll implement this action later
+                console.log('Process round scoring')
+              }}
+              className="mt-4"
+            >
+              Continue to Next Round
+            </Button>
           </div>
         )}
 
