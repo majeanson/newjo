@@ -10,9 +10,10 @@ import TeamSelection from "../room/[id]/team-selection"
 import SeatSelection from "../room/[id]/seat-selection"
 import BettingPhase from "../room/[id]/betting-phase"
 import CardGame from "../room/[id]/card-game"
-import { Users, Play, RotateCcw } from "lucide-react"
+import { Users, RotateCcw } from "lucide-react"
 
-const MOCK_ROOM_ID = "simulator-room"
+// You can update this with your actual room ID
+const SIMULATOR_ROOM_ID = "simulator-room" // Replace with your room ID
 
 const TEST_PLAYERS = [
   { id: "alice", name: "Alice", color: "bg-red-100 border-red-300 text-red-800" },
@@ -24,6 +25,7 @@ const TEST_PLAYERS = [
 export default function GameSimulator() {
   const [gameState, setGameState] = useState<GameState>(createInitialGameState())
   const [activePlayer, setActivePlayer] = useState<string>("alice")
+  const [roomId, setRoomId] = useState<string>(SIMULATOR_ROOM_ID)
 
   function createInitialGameState(): GameState {
     const players: Record<string, any> = {}
@@ -58,6 +60,8 @@ export default function GameSimulator() {
   const handleGameStateUpdate = (newGameState: GameState) => {
     setGameState(newGameState)
   }
+
+  // Remove complex initialization for now
 
   const resetGame = () => {
     setGameState(createInitialGameState())
@@ -137,6 +141,25 @@ export default function GameSimulator() {
 
   return (
     <div className="space-y-6">
+      {/* Setup Instructions */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardHeader>
+          <CardTitle className="text-blue-800">📋 Setup Required</CardTitle>
+        </CardHeader>
+        <CardContent className="text-blue-700">
+          <div className="space-y-3">
+            <p><strong>Quick Setup (2 steps):</strong></p>
+            <ol className="space-y-2 text-sm">
+              <li><strong>1. Create a room:</strong> Go to Dashboard → Create any room → Copy the room ID from URL</li>
+              <li><strong>2. Update room ID:</strong> Replace <code className="bg-blue-100 px-1 rounded">SIMULATOR_ROOM_ID</code> in the code with your room ID</li>
+            </ol>
+            <p className="text-xs bg-blue-100 p-2 rounded">
+              <strong>Current Room ID:</strong> <code>{roomId}</code>
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Header */}
       <Card>
         <CardHeader>
@@ -214,7 +237,7 @@ export default function GameSimulator() {
                 {/* Game Phase Component */}
                 {gameState.phase === GamePhase.TEAM_SELECTION && (
                   <TeamSelection
-                    roomId={MOCK_ROOM_ID}
+                    roomId={roomId}
                     gameState={gameState}
                     currentUserId={player.id}
                     onGameStateUpdate={handleGameStateUpdate}
@@ -223,7 +246,7 @@ export default function GameSimulator() {
 
                 {gameState.phase === GamePhase.SEAT_SELECTION && (
                   <SeatSelection
-                    roomId={MOCK_ROOM_ID}
+                    roomId={roomId}
                     gameState={gameState}
                     currentUserId={player.id}
                     onGameStateUpdate={handleGameStateUpdate}
@@ -232,7 +255,7 @@ export default function GameSimulator() {
 
                 {gameState.phase === GamePhase.BETS && (
                   <BettingPhase
-                    roomId={MOCK_ROOM_ID}
+                    roomId={roomId}
                     gameState={gameState}
                     currentUserId={player.id}
                     onGameStateUpdate={handleGameStateUpdate}
@@ -241,7 +264,7 @@ export default function GameSimulator() {
 
                 {gameState.phase === GamePhase.CARDS && (
                   <CardGame
-                    roomId={MOCK_ROOM_ID}
+                    roomId={roomId}
                     gameState={gameState}
                     currentUserId={player.id}
                     onGameStateUpdate={handleGameStateUpdate}
