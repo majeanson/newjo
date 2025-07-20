@@ -78,7 +78,7 @@ export default function GameSimulator() {
   // Load current game state when simulator loads
   const loadCurrentGameState = async () => {
     try {
-      const response = await fetch('/simulator', {
+      const response = await fetch('/api/simulator', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'getGameState', roomId })
@@ -99,7 +99,7 @@ export default function GameSimulator() {
 
   const resetGame = async () => {
     try {
-      const response = await fetch('/simulator', {
+      const response = await fetch('/api/simulator', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'resetGame', roomId })
