@@ -12,6 +12,14 @@ const TEST_USERS = [
   { id: "test-player4", name: "Diana" }
 ]
 
+// Dummy players for simulator (permanent in database)
+const DUMMY_PLAYERS = [
+  { id: "dummy-alice", name: "Alice (Dummy)" },
+  { id: "dummy-bob", name: "Bob (Dummy)" },
+  { id: "dummy-charlie", name: "Charlie (Dummy)" },
+  { id: "dummy-diana", name: "Diana (Dummy)" }
+]
+
 // Create or get test user
 async function ensureTestUser(userId: string, userName: string) {
   try {
@@ -169,6 +177,90 @@ export async function createTestRoom(roomName: string) {
   } catch (error) {
     console.error("Failed to create test room:", error)
     return { success: false, error: "Failed to create test room" }
+  }
+}
+
+// Create dummy players for simulator
+export async function ensureDummyPlayers() {
+  try {
+    for (const player of DUMMY_PLAYERS) {
+      await prisma.user.upsert({
+        where: { id: player.id },
+        update: { name: player.name },
+        create: {
+          id: player.id,
+          name: player.name
+        }
+      })
+    }
+    console.log("✅ Dummy players ensured in database")
+    return { success: true }
+  } catch (error) {
+    console.error("Failed to ensure dummy players:", error)
+    return { success: false, error: "Failed to create dummy players" }
+  }
+}
+
+// Create simulator room with dummy players
+export async function createSimulatorRoom() {
+  try {
+    // Ensure dummy players exist
+    await ensureDummyPlayers()
+
+    // Create or get simulator room
+    const SIMULATOR_ROOM_ID = "simulator-room-fixed"
+
+    let room = await prisma.room.findUnique({
+      where: { id: SIMULATOR_ROOM_ID },
+      include: {
+        members: true
+      }
+    })
+
+    if (!room) {
+      // Create new simulator room
+      room = await prisma.room.create({
+        data: {
+          id: SIMULATOR_ROOM_ID,
+          name: "Simulator Room",
+          hostId: DUMMY_PLAYERS[0].id
+        },
+        include: {
+          members: true
+        }
+      })
+    }
+
+    // Ensure all dummy players are members
+    for (const player of DUMMY_PLAYERS) {
+      const existingMember = await prisma.roomMember.findUnique({
+        where: {
+          roomId_userId: {
+            roomId: room.id,
+            userId: player.id
+          }
+        }
+      })
+
+      if (!existingMember) {
+        await prisma.roomMember.create({
+          data: {
+            roomId: room.id,
+            userId: player.id
+          }
+        })
+      }
+    }
+
+    // Initialize game state for the room
+    const { initializeGame } = await import("./game-actions")
+    const gameResult = await initializeGame(room.id)
+
+    console.log(`✅ Simulator room ready: ${room.id}`)
+    return { success: true, roomId: room.id, gameState: gameResult.gameState }
+  } catch (error) {
+    console.error("Failed to create simulator room:", error)
+    return { success: false, error: "Failed to create simulator room" }
   }
 }
 

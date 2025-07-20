@@ -12,26 +12,29 @@ import BettingPhase from "../room/[id]/betting-phase"
 import CardGame from "../room/[id]/card-game"
 import { Users, RotateCcw, Zap } from "lucide-react"
 import { forceInitializeGame, getRoomGameState } from "../actions/game-actions"
+import { createSimulatorRoom } from "../actions/testing"
 
-// You can update this with your actual room ID
-const SIMULATOR_ROOM_ID = "cmdb1prsm0004ud64qy6xfix6" // Replace with your room ID
+// Fixed simulator room ID
+const SIMULATOR_ROOM_ID = "simulator-room-fixed"
 
-const TEST_PLAYERS = [
-  { id: "alice", name: "Alice", color: "bg-red-100 border-red-300 text-red-800" },
-  { id: "bob", name: "Bob", color: "bg-blue-100 border-blue-300 text-blue-800" },
-  { id: "charlie", name: "Charlie", color: "bg-green-100 border-green-300 text-green-800" },
-  { id: "diana", name: "Diana", color: "bg-purple-100 border-purple-300 text-purple-800" }
+// Dummy players (permanent in database)
+const DUMMY_PLAYERS = [
+  { id: "dummy-alice", name: "Alice", color: "bg-red-100 border-red-300 text-red-800" },
+  { id: "dummy-bob", name: "Bob", color: "bg-blue-100 border-blue-300 text-blue-800" },
+  { id: "dummy-charlie", name: "Charlie", color: "bg-green-100 border-green-300 text-green-800" },
+  { id: "dummy-diana", name: "Diana", color: "bg-purple-100 border-purple-300 text-purple-800" }
 ]
 
 export default function GameSimulator() {
   const [gameState, setGameState] = useState<GameState>(createInitialGameState())
-  const [activePlayer, setActivePlayer] = useState<string>("alice")
+  const [activePlayer, setActivePlayer] = useState<string>("dummy-alice")
   const [roomId, setRoomId] = useState<string>(SIMULATOR_ROOM_ID)
   const [isForceInitializing, setIsForceInitializing] = useState(false)
+  const [isInitializingRoom, setIsInitializingRoom] = useState(false)
 
   function createInitialGameState(): GameState {
     const players: Record<string, any> = {}
-    TEST_PLAYERS.forEach(player => {
+    DUMMY_PLAYERS.forEach(player => {
       players[player.id] = {
         id: player.id,
         name: player.name,
@@ -44,9 +47,9 @@ export default function GameSimulator() {
     return {
       phase: GamePhase.TEAM_SELECTION,
       round: 1,
-      currentTurn: "alice",
-      dealer: "alice",
-      starter: "alice",
+      currentTurn: "dummy-alice",
+      dealer: "dummy-alice",
+      starter: "dummy-alice",
       trump: undefined,
       highestBet: undefined,
       players,
@@ -55,7 +58,7 @@ export default function GameSimulator() {
       playerHands: {},
       wonTricks: {},
       scores: {},
-      turnOrder: TEST_PLAYERS.map(p => p.id)
+      turnOrder: DUMMY_PLAYERS.map(p => p.id)
     }
   }
 
@@ -67,7 +70,29 @@ export default function GameSimulator() {
 
   const resetGame = () => {
     setGameState(createInitialGameState())
-    setActivePlayer("alice")
+    setActivePlayer("dummy-alice")
+  }
+
+  const handleInitializeSimulatorRoom = async () => {
+    setIsInitializingRoom(true)
+    try {
+      const result = await createSimulatorRoom()
+      if (result.success && result.roomId) {
+        setRoomId(result.roomId)
+        if (result.gameState) {
+          setGameState(result.gameState)
+        }
+        console.log("✅ Simulator room initialized with dummy players")
+      } else {
+        console.error("❌ Simulator room initialization failed:", result.error)
+        alert(`Failed to initialize simulator room: ${result.error}`)
+      }
+    } catch (error) {
+      console.error("❌ Simulator room initialization error:", error)
+      alert("Failed to initialize simulator room")
+    } finally {
+      setIsInitializingRoom(false)
+    }
   }
 
   const handleForceInitialize = async () => {
@@ -103,59 +128,59 @@ export default function GameSimulator() {
     
     // Add mock data based on phase
     if (phase === GamePhase.SEAT_SELECTION) {
-      newGameState.players.alice.team = Team.A
-      newGameState.players.bob.team = Team.B
-      newGameState.players.charlie.team = Team.A
-      newGameState.players.diana.team = Team.B
+      newGameState.players["dummy-alice"].team = Team.A
+      newGameState.players["dummy-bob"].team = Team.B
+      newGameState.players["dummy-charlie"].team = Team.A
+      newGameState.players["dummy-diana"].team = Team.B
     }
-    
+
     if (phase === GamePhase.BETS) {
-      newGameState.players.alice.team = Team.A
-      newGameState.players.bob.team = Team.B
-      newGameState.players.charlie.team = Team.A
-      newGameState.players.diana.team = Team.B
-      newGameState.players.alice.seatPosition = 0
-      newGameState.players.bob.seatPosition = 1
-      newGameState.players.charlie.seatPosition = 2
-      newGameState.players.diana.seatPosition = 3
+      newGameState.players["dummy-alice"].team = Team.A
+      newGameState.players["dummy-bob"].team = Team.B
+      newGameState.players["dummy-charlie"].team = Team.A
+      newGameState.players["dummy-diana"].team = Team.B
+      newGameState.players["dummy-alice"].seatPosition = 0
+      newGameState.players["dummy-bob"].seatPosition = 1
+      newGameState.players["dummy-charlie"].seatPosition = 2
+      newGameState.players["dummy-diana"].seatPosition = 3
     }
     
     if (phase === GamePhase.CARDS) {
-      newGameState.players.alice.team = Team.A
-      newGameState.players.bob.team = Team.B
-      newGameState.players.charlie.team = Team.A
-      newGameState.players.diana.team = Team.B
-      newGameState.players.alice.seatPosition = 0
-      newGameState.players.bob.seatPosition = 1
-      newGameState.players.charlie.seatPosition = 2
-      newGameState.players.diana.seatPosition = 3
-      
+      newGameState.players["dummy-alice"].team = Team.A
+      newGameState.players["dummy-bob"].team = Team.B
+      newGameState.players["dummy-charlie"].team = Team.A
+      newGameState.players["dummy-diana"].team = Team.B
+      newGameState.players["dummy-alice"].seatPosition = 0
+      newGameState.players["dummy-bob"].seatPosition = 1
+      newGameState.players["dummy-charlie"].seatPosition = 2
+      newGameState.players["dummy-diana"].seatPosition = 3
+
       // Add mock cards for each player
       newGameState.playerHands = {
-        alice: [
-          { id: "a1", color: CardColor.RED, value: 5, playerId: "alice", trickNumber: 0, playOrder: 0 },
-          { id: "a2", color: CardColor.BLUE, value: 3, playerId: "alice", trickNumber: 0, playOrder: 0 },
-          { id: "a3", color: CardColor.GREEN, value: 7, playerId: "alice", trickNumber: 0, playOrder: 0 },
+        "dummy-alice": [
+          { id: "a1", color: CardColor.RED, value: 5, playerId: "dummy-alice", trickNumber: 0, playOrder: 0 },
+          { id: "a2", color: CardColor.BLUE, value: 3, playerId: "dummy-alice", trickNumber: 0, playOrder: 0 },
+          { id: "a3", color: CardColor.GREEN, value: 7, playerId: "dummy-alice", trickNumber: 0, playOrder: 0 },
         ],
-        bob: [
-          { id: "b1", color: CardColor.RED, value: 2, playerId: "bob", trickNumber: 0, playOrder: 0 },
-          { id: "b2", color: CardColor.BLUE, value: 6, playerId: "bob", trickNumber: 0, playOrder: 0 },
-          { id: "b3", color: CardColor.BROWN, value: 1, playerId: "bob", trickNumber: 0, playOrder: 0 },
+        "dummy-bob": [
+          { id: "b1", color: CardColor.RED, value: 2, playerId: "dummy-bob", trickNumber: 0, playOrder: 0 },
+          { id: "b2", color: CardColor.BLUE, value: 6, playerId: "dummy-bob", trickNumber: 0, playOrder: 0 },
+          { id: "b3", color: CardColor.BROWN, value: 1, playerId: "dummy-bob", trickNumber: 0, playOrder: 0 },
         ],
-        charlie: [
-          { id: "c1", color: CardColor.GREEN, value: 4, playerId: "charlie", trickNumber: 0, playOrder: 0 },
-          { id: "c2", color: CardColor.RED, value: 0, playerId: "charlie", trickNumber: 0, playOrder: 0 },
-          { id: "c3", color: CardColor.BLUE, value: 7, playerId: "charlie", trickNumber: 0, playOrder: 0 },
+        "dummy-charlie": [
+          { id: "c1", color: CardColor.GREEN, value: 4, playerId: "dummy-charlie", trickNumber: 0, playOrder: 0 },
+          { id: "c2", color: CardColor.RED, value: 0, playerId: "dummy-charlie", trickNumber: 0, playOrder: 0 },
+          { id: "c3", color: CardColor.BLUE, value: 7, playerId: "dummy-charlie", trickNumber: 0, playOrder: 0 },
         ],
-        diana: [
-          { id: "d1", color: CardColor.BROWN, value: 3, playerId: "diana", trickNumber: 0, playOrder: 0 },
-          { id: "d2", color: CardColor.GREEN, value: 2, playerId: "diana", trickNumber: 0, playOrder: 0 },
-          { id: "d3", color: CardColor.RED, value: 6, playerId: "diana", trickNumber: 0, playOrder: 0 },
+        "dummy-diana": [
+          { id: "d1", color: CardColor.BROWN, value: 3, playerId: "dummy-diana", trickNumber: 0, playOrder: 0 },
+          { id: "d2", color: CardColor.GREEN, value: 2, playerId: "dummy-diana", trickNumber: 0, playOrder: 0 },
+          { id: "d3", color: CardColor.RED, value: 6, playerId: "dummy-diana", trickNumber: 0, playOrder: 0 },
         ]
       }
-      
+
       newGameState.highestBet = {
-        playerId: "alice",
+        playerId: "dummy-alice",
         value: 3,
         trump: false,
         timestamp: new Date()
@@ -166,7 +191,7 @@ export default function GameSimulator() {
   }
 
   const getPlayerColor = (playerId: string) => {
-    return TEST_PLAYERS.find(p => p.id === playerId)?.color || "bg-gray-100"
+    return DUMMY_PLAYERS.find(p => p.id === playerId)?.color || "bg-gray-100"
   }
 
   return (
@@ -178,14 +203,21 @@ export default function GameSimulator() {
         </CardHeader>
         <CardContent className="text-blue-700">
           <div className="space-y-3">
-            <p><strong>Quick Setup (2 steps):</strong></p>
-            <ol className="space-y-2 text-sm">
-              <li><strong>1. Create a room:</strong> Go to Dashboard → Create any room → Copy the room ID from URL</li>
-              <li><strong>2. Update room ID:</strong> Replace <code className="bg-blue-100 px-1 rounded">SIMULATOR_ROOM_ID</code> in the code with your room ID</li>
-              <li><strong>3. If stuck in waiting:</strong> Use "Force Start Real Room" button to initialize the game</li>
-            </ol>
+            <p><strong>Automatic Setup:</strong></p>
+            <p className="text-sm">
+              The simulator now uses permanent dummy players in the database.
+              Click the button below to create/initialize the simulator room automatically.
+            </p>
+            <Button
+              onClick={handleInitializeSimulatorRoom}
+              disabled={isInitializingRoom}
+              className="w-full"
+            >
+              {isInitializingRoom ? "Initializing..." : "Initialize Simulator Room"}
+            </Button>
             <p className="text-xs bg-blue-100 p-2 rounded">
-              <strong>Current Room ID:</strong> <code>{roomId}</code>
+              <strong>Current Room ID:</strong> <code>{roomId}</code><br/>
+              <strong>Dummy Players:</strong> Alice, Bob, Charlie, Diana (permanent in database)
             </p>
           </div>
         </CardContent>
@@ -241,7 +273,7 @@ export default function GameSimulator() {
             </div>
             <div>
               <span className="text-sm text-gray-600">Active View:</span>
-              <Badge variant="default">{TEST_PLAYERS.find(p => p.id === activePlayer)?.name}</Badge>
+              <Badge variant="default">{DUMMY_PLAYERS.find(p => p.id === activePlayer)?.name}</Badge>
             </div>
           </div>
 
@@ -266,7 +298,7 @@ export default function GameSimulator() {
       {/* Player Tabs */}
       <Tabs value={activePlayer} onValueChange={setActivePlayer}>
         <TabsList className="grid w-full grid-cols-4">
-          {TEST_PLAYERS.map((player) => (
+          {DUMMY_PLAYERS.map((player) => (
             <TabsTrigger key={player.id} value={player.id} className="flex items-center gap-2">
               <div className={`w-3 h-3 rounded-full ${player.color.split(' ')[0]}`} />
               {player.name}
@@ -274,7 +306,7 @@ export default function GameSimulator() {
           ))}
         </TabsList>
 
-        {TEST_PLAYERS.map((player) => (
+        {DUMMY_PLAYERS.map((player) => (
           <TabsContent key={player.id} value={player.id} className="space-y-4">
             <Card className={`border-2 ${player.color.split(' ')[1]}`}>
               <CardHeader>
@@ -332,7 +364,7 @@ export default function GameSimulator() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-            {TEST_PLAYERS.map((player) => {
+            {DUMMY_PLAYERS.map((player) => {
               const playerState = gameState.players[player.id]
               return (
                 <div key={player.id} className={`p-2 rounded ${player.color}`}>
