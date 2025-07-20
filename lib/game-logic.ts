@@ -228,9 +228,9 @@ export function canPlayCard(gameState: GameState, playerId: string, card: Card):
     return false
   }
 
-  const playedCards = Object.values(gameState.playedCards)
+  const playedCards = Object.values(gameState.playedCards).sort((a, b) => a.playOrder - b.playOrder)
   const firstCard = playedCards[0]
-  console.log(`🎴 Played cards this trick: ${playedCards.map(c => `${c.color}-${c.value}`).join(', ')}`)
+  console.log(`🎴 Played cards this trick (in order): ${playedCards.map(c => `${c.color}-${c.value} (${c.playOrder})`).join(', ')}`)
 
   // If this is the first card of the trick, any card can be played
   if (!firstCard) {
@@ -351,7 +351,7 @@ export function processTrickWin(gameState: GameState): GameState {
     throw new Error('Trick is not complete')
   }
 
-  const playedCards = Object.values(gameState.playedCards)
+  const playedCards = Object.values(gameState.playedCards).sort((a, b) => a.playOrder - b.playOrder)
   const winningCard = getWinningCard(playedCards, gameState.trump)
 
   if (!winningCard) {
