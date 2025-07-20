@@ -25,6 +25,8 @@ export default function TestingDashboard({ currentUser }: TestingDashboardProps)
   const handleUserSwitch = async (userId: string, userName: string) => {
     const result = await switchToTestUser(userId, userName)
     if (result.success) {
+      // Store the selected user in localStorage for persistence
+      localStorage.setItem('selectedTestUser', JSON.stringify({ id: userId, name: userName }))
       window.location.reload()
     }
   }

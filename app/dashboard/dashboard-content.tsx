@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
-import { Users, Plus, LogOut, Home, TestTube } from "lucide-react"
+import { Users, Plus, LogOut, Home, TestTube, Monitor } from "lucide-react"
 import Link from "next/link"
 
 type User = {
@@ -58,6 +58,12 @@ export default function DashboardContent({ user, rooms }: DashboardContentProps)
             <p className="text-gray-600">Create a room or join an existing one</p>
           </div>
           <div className="flex gap-2">
+            <Link href="/simulator">
+              <Button variant="default">
+                <Monitor className="w-4 h-4 mr-2" />
+                Game Simulator
+              </Button>
+            </Link>
             <Link href="/testing">
               <Button variant="outline">
                 <TestTube className="w-4 h-4 mr-2" />
