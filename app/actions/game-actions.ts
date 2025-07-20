@@ -606,7 +606,7 @@ export async function forceAutoStartAction(roomId: string): Promise<{ success: b
       return { success: false, error: `Need exactly 4 players, found ${playerCount}` }
     }
 
-    if (gameState.phase !== GamePhase.TEAM_SELECTION) {
+    if (gameState.phase !== GamePhase.TEAM_SELECTION && gameState.phase !== GamePhase.WAITING) {
       return { success: false, error: "Game already started" }
     }
 

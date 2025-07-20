@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { GamePhase, GameState } from "@/lib/game-types"
 import { useGameState } from "@/hooks/use-game-state"
+import WaitingPhase from "./waiting-phase"
 import TeamSelection from "./team-selection"
 import BettingPhase from "./betting-phase"
 import CardGame from "./card-game"
@@ -81,12 +82,12 @@ export default function GamePhases({ roomId, gameState: initialGameState, curren
       {/* Phase-specific content */}
       <div className="w-full">
         {gameState.phase === GamePhase.WAITING && (
-          <Card className="max-w-2xl mx-auto">
-            <CardContent className="text-center py-8">
-              <h2 className="text-xl font-semibold mb-4">Waiting for Players</h2>
-              <p className="text-gray-600">Need 4 players to start the game.</p>
-            </CardContent>
-          </Card>
+          <WaitingPhase
+            roomId={roomId}
+            gameState={gameState}
+            currentUserId={currentUserId}
+            onGameStateUpdate={handleGameStateUpdate}
+          />
         )}
 
         {gameState.phase === GamePhase.TEAM_SELECTION && (
