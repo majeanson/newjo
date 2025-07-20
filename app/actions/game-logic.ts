@@ -233,9 +233,13 @@ export async function placeBetAction(
     }
 
     const newGameState = placeBet(gameState, userId, betValue, trump)
-    
+
+    console.log('🎯 Bet placed by:', userId, 'Bet:', betValue, 'Trump:', trump)
+    console.log('🎯 Current bets:', Object.keys(newGameState.bets).length, '/', newGameState.turnOrder.length)
+
     // Check if all bets are placed
     if (areAllBetsPlaced(newGameState)) {
+      console.log('🎯 All bets are placed! Moving to cards phase...')
       const allBets = Object.values(newGameState.bets)
       const highestBet = getHighestBet(allBets)
 
@@ -255,6 +259,7 @@ export async function placeBetAction(
       await saveGameState(roomId, gameStateWithCards)
 
       // Broadcast that all bets are complete and cards phase started
+      console.log('🎯 Broadcasting betting_complete event for room:', roomId)
       await broadcastGameEvent({
         type: 'betting_complete',
         roomId,
@@ -263,10 +268,12 @@ export async function placeBetAction(
           phase: 'cards',
           highestBet: highestBet?.value,
           highestBetter: highestBet?.playerId,
-          trump: highestBet?.trump
+          trump: highestBet?.trump,
+          allBetsComplete: true
         },
         timestamp: new Date()
       })
+      console.log('✅ betting_complete event broadcasted')
 
       revalidatePath(`/room/${roomId}`)
       return { success: true, gameState: gameStateWithCards }
@@ -275,6 +282,7 @@ export async function placeBetAction(
     await saveGameState(roomId, newGameState)
 
     // Broadcast that a bet was placed
+    console.log('🎯 Broadcasting bet_placed event for:', userId)
     await broadcastGameEvent({
       type: 'bet_placed',
       roomId,
@@ -287,6 +295,7 @@ export async function placeBetAction(
       },
       timestamp: new Date()
     })
+    console.log('✅ bet_placed event broadcasted')
 
     revalidatePath(`/room/${roomId}`)
 

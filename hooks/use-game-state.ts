@@ -23,12 +23,18 @@ export function useGameState({ roomId, initialGameState, onGameEvent }: UseGameS
   // Refresh game state manually
   const refreshGameState = useCallback(async () => {
     try {
+      console.log('🔄 Refreshing game state for room:', roomId)
       const response = await fetch(`/api/game-state/${roomId}`)
       if (response.ok) {
         const result = await response.json()
         if (result.gameState) {
+          console.log('✅ Game state refreshed:', result.gameState.phase, 'Round:', result.gameState.round)
           setGameState(result.gameState)
+        } else {
+          console.log('❌ No game state in response:', result)
         }
+      } else {
+        console.log('❌ Failed to fetch game state:', response.status, response.statusText)
       }
     } catch (error) {
       console.error('Failed to refresh game state:', error)
@@ -68,9 +74,20 @@ export function useGameState({ roomId, initialGameState, onGameEvent }: UseGameS
               return
             }
 
-            // Any other event means game state changed - refresh it
-            console.log('Game event received, refreshing state:', data)
-            refreshGameState()
+            // Handle specific event types
+            console.log('Game event received:', data.type, data)
+
+            if (data.type === 'bet_placed') {
+              console.log('🎯 Bet placed event received, refreshing game state')
+              refreshGameState()
+            } else if (data.type === 'betting_complete') {
+              console.log('🎯 Betting complete event received, refreshing game state')
+              refreshGameState()
+            } else {
+              // Any other event means game state changed - refresh it
+              console.log('🎯 Other game event received, refreshing state')
+              refreshGameState()
+            }
 
             // Call custom event handler if provided
             if (onGameEvent) {
