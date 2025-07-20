@@ -192,12 +192,21 @@ export async function selectPlayerTeam(
 
 // Betting action
 export async function placeBetAction(
-  roomId: string, 
-  betValue: number, 
-  trump: boolean
+  roomId: string,
+  betValue: number,
+  trump: boolean,
+  playerId?: string
 ): Promise<{ success: boolean; error?: string; gameState?: GameState }> {
   try {
-    const user = await getCurrentUser()
+    // Use provided playerId (for simulator) or get from session (for real users)
+    let userId = playerId
+    if (!userId) {
+      const user = await getCurrentUser()
+      if (!user) {
+        return { success: false, error: "Not authenticated" }
+      }
+      userId = user.id
+    }
 
     const gameState = await getGameState(roomId)
     if (!gameState) {
@@ -208,11 +217,11 @@ export async function placeBetAction(
       return { success: false, error: "Not in betting phase" }
     }
 
-    if (gameState.currentTurn !== user.id) {
+    if (gameState.currentTurn !== userId) {
       return { success: false, error: "Not your turn" }
     }
 
-    const newGameState = placeBet(gameState, user.id, betValue, trump)
+    const newGameState = placeBet(gameState, userId, betValue, trump)
     
     // Check if all bets are placed
     if (areAllBetsPlaced(newGameState)) {

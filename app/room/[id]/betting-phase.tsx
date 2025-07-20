@@ -37,7 +37,7 @@ export default function BettingPhase({ roomId, gameState, currentUserId, onGameS
     setError(null)
 
     try {
-      const result = await placeBetAction(roomId, betValue, isTrump)
+      const result = await placeBetAction(roomId, betValue, isTrump, currentUserId)
       
       if (result.success && result.gameState) {
         onGameStateUpdate(result.gameState)
