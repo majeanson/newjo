@@ -342,6 +342,14 @@ export async function playCardAction(
       // Check if round is complete
       if (isRoundComplete(newGameState)) {
         newGameState.phase = GamePhase.TRICK_SCORING
+
+        // Automatically process round scoring
+        const roundScores = calculateRoundScores(newGameState)
+        console.log(`🏆 Round ${newGameState.round} complete! Processing scores:`, roundScores)
+
+        // Process the round end to update scores and prepare next round
+        newGameState = processRoundEnd(newGameState)
+        console.log(`🎯 Round ${newGameState.round - 1} scored. Starting round ${newGameState.round}`)
       }
     }
 
