@@ -7,13 +7,22 @@ import { Badge } from "@/components/ui/badge"
 import { GameState, Card as GameCard } from "@/lib/game-types"
 
 interface CardGameProps {
+  roomId: string
   gameState: GameState
   currentUserId: string
+  onGameStateUpdate: (newGameState: GameState) => void
 }
 
-export default function CardGame({ gameState, currentUserId }: CardGameProps) {
+// Mock card playing action - replace with real action
+async function playCardAction(roomId: string, cardId: string) {
+  console.log(`Playing card ${cardId} in room ${roomId}`)
+  return { success: true, gameState: null }
+}
+
+export default function CardGame({ roomId, gameState, currentUserId, onGameStateUpdate }: CardGameProps) {
   const [selectedCard, setSelectedCard] = useState<GameCard | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const isMyTurn = gameState.currentTurn === currentUserId
   const playerHand = gameState.playerHands[currentUserId] || []
@@ -27,15 +36,22 @@ export default function CardGame({ gameState, currentUserId }: CardGameProps) {
 
   const handlePlayCard = async () => {
     if (!selectedCard || !isMyTurn || isPlaying) return
-    
+
     setIsPlaying(true)
+    setError(null)
+
     try {
-      // We'll implement the actual server action call later
-      console.log('Playing card:', selectedCard)
-      // const result = await playCardAction(roomId, selectedCard.id)
-      setSelectedCard(null)
+      const result = await playCardAction(roomId, selectedCard.id)
+
+      if (result.success && result.gameState) {
+        onGameStateUpdate(result.gameState)
+        setSelectedCard(null)
+      } else {
+        setError("Failed to play card")
+      }
     } catch (error) {
       console.error('Failed to play card:', error)
+      setError("Failed to play card")
     } finally {
       setIsPlaying(false)
     }
@@ -70,6 +86,9 @@ export default function CardGame({ gameState, currentUserId }: CardGameProps) {
         )}
         {isMyTurn && (
           <p className="text-sm text-green-600 font-semibold">{`It's your turn!`}</p>
+        )}
+        {error && (
+          <p className="text-sm text-red-600 bg-red-50 p-2 rounded">{error}</p>
         )}
       </CardHeader>
       

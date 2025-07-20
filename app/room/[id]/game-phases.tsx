@@ -1,8 +1,13 @@
 "use client"
+
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { GamePhase, GameState } from "@/lib/game-types"
+import TeamSelection from "./team-selection"
+import SeatSelection from "./seat-selection"
+import BettingPhase from "./betting-phase"
 import CardGame from "./card-game"
 
 interface GamePhasesProps {
@@ -11,81 +16,123 @@ interface GamePhasesProps {
   currentUserId: string
 }
 
-export default function GamePhases({ roomId, gameState, currentUserId }: GamePhasesProps) {
+export default function GamePhases({ roomId, gameState: initialGameState, currentUserId }: GamePhasesProps) {
+  const [gameState, setGameState] = useState(initialGameState)
   const currentPlayer = gameState.players[currentUserId]
   const isMyTurn = gameState.currentTurn === currentUserId
 
-  // For now, just display the game state
+  const handleGameStateUpdate = (newGameState: GameState) => {
+    setGameState(newGameState)
+  }
+
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <CardTitle>Game Phase: {gameState.phase}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div>
-          <h3 className="font-semibold mb-2">Players:</h3>
-          <div className="space-y-2">
-            {Object.values(gameState.players).map(player => (
-              <div key={player.id} className="flex justify-between items-center">
-                <span>{player.name}</span>
-                <div className="flex gap-2">
-                  {player.team && <Badge variant="outline">Team {player.team}</Badge>}
-                  {player.seatPosition !== undefined && <Badge variant="secondary">Seat {player.seatPosition + 1}</Badge>}
-                  {player.isReady && <Badge variant="default">Ready</Badge>}
-                </div>
-              </div>
-            ))}
+    <div className="space-y-6">
+      {/* Game Status Header */}
+      <Card className="w-full max-w-4xl mx-auto">
+        <CardHeader>
+          <CardTitle className="text-center">
+            Game Status - Round {gameState.round}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            <div>
+              <p className="text-sm text-gray-600">Phase</p>
+              <Badge variant="default">{gameState.phase}</Badge>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Players</p>
+              <Badge variant="outline">{Object.keys(gameState.players).length}/4</Badge>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Current Turn</p>
+              <Badge variant={isMyTurn ? "default" : "secondary"}>
+                {isMyTurn ? "Your Turn" : gameState.players[gameState.currentTurn]?.name || "Waiting"}
+              </Badge>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Dealer</p>
+              <Badge variant="outline">
+                {gameState.players[gameState.dealer]?.name || "Not Set"}
+              </Badge>
+            </div>
           </div>
-        </div>
+        </CardContent>
+      </Card>
+
+      {/* Phase-specific content */}
+      <div className="w-full">
+        {gameState.phase === GamePhase.WAITING && (
+          <Card className="max-w-2xl mx-auto">
+            <CardContent className="text-center py-8">
+              <h2 className="text-xl font-semibold mb-4">Waiting for Players</h2>
+              <p className="text-gray-600">Need 4 players to start the game.</p>
+            </CardContent>
+          </Card>
+        )}
 
         {gameState.phase === GamePhase.TEAM_SELECTION && (
-          <div>
-            <p className="text-sm text-gray-600">Players need to select teams (2 players per team)</p>
-          </div>
+          <TeamSelection
+            roomId={roomId}
+            gameState={gameState}
+            currentUserId={currentUserId}
+            onGameStateUpdate={handleGameStateUpdate}
+          />
         )}
 
         {gameState.phase === GamePhase.SEAT_SELECTION && (
-          <div>
-            <p className="text-sm text-gray-600">Players need to select their seats</p>
-          </div>
+          <SeatSelection
+            roomId={roomId}
+            gameState={gameState}
+            currentUserId={currentUserId}
+            onGameStateUpdate={handleGameStateUpdate}
+          />
         )}
 
         {gameState.phase === GamePhase.BETS && (
-          <div>
-            <p className="text-sm text-gray-600">Betting phase - players place their bets</p>
-            {isMyTurn && <p className="text-green-600 font-semibold">{`It's your turn to bet!`}</p>}
-          </div>
+          <BettingPhase
+            roomId={roomId}
+            gameState={gameState}
+            currentUserId={currentUserId}
+            onGameStateUpdate={handleGameStateUpdate}
+          />
         )}
 
         {gameState.phase === GamePhase.CARDS && (
-          <div className="w-full">
-            <CardGame
-              roomId={roomId}
-              gameState={gameState}
-              currentUserId={currentUserId}
-            />
-          </div>
+          <CardGame
+            roomId={roomId}
+            gameState={gameState}
+            currentUserId={currentUserId}
+            onGameStateUpdate={handleGameStateUpdate}
+          />
         )}
 
         {gameState.phase === GamePhase.TRICK_SCORING && (
-          <div>
-            <p className="text-sm text-gray-600">Round complete - calculating scores...</p>
-            <Button
-              onClick={() => {
-                // We'll implement this action later
-                console.log('Process round scoring')
-              }}
-              className="mt-4"
-            >
-              Continue to Next Round
-            </Button>
-          </div>
+          <Card className="max-w-2xl mx-auto">
+            <CardContent className="text-center py-8">
+              <h2 className="text-xl font-semibold mb-4">Round Complete</h2>
+              <p className="text-gray-600 mb-4">Calculating scores...</p>
+              <Button
+                onClick={() => {
+                  console.log('Process round scoring')
+                }}
+              >
+                Continue to Next Round
+              </Button>
+            </CardContent>
+          </Card>
         )}
+      </div>
 
-        <div className="text-xs text-gray-500">
-          Room ID: {roomId} | Current User: {currentPlayer?.name}
-        </div>
-      </CardContent>
-    </Card>
+      {/* Debug Info */}
+      <Card className="max-w-2xl mx-auto">
+        <CardContent className="text-xs text-gray-500 p-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>Room ID: {roomId}</div>
+            <div>Current User: {currentPlayer?.name}</div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   )
 }
