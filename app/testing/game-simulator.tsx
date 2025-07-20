@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -27,6 +27,11 @@ const DUMMY_PLAYERS = [
 export default function GameSimulator() {
   const [gameState, setGameState] = useState<GameState>(createInitialGameState())
   const [activePlayer, setActivePlayer] = useState<string>("dummy-alice")
+
+  // Load current game state when component mounts
+  useEffect(() => {
+    loadCurrentGameState()
+  }, [])
   const [roomId, setRoomId] = useState<string>(SIMULATOR_ROOM_ID)
   const [isForceInitializing, setIsForceInitializing] = useState(false)
   const [isInitializingRoom, setIsInitializingRoom] = useState(false)
@@ -70,11 +75,47 @@ export default function GameSimulator() {
     }
   }
 
-  // Remove complex initialization for now
+  // Load current game state when simulator loads
+  const loadCurrentGameState = async () => {
+    try {
+      const response = await fetch('/simulator', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getGameState', roomId })
+      })
 
-  const resetGame = () => {
-    setGameState(createInitialGameState())
-    setActivePlayer("dummy-alice")
+      const result = await response.json()
+      if (result.success && result.gameState) {
+        setGameState(result.gameState)
+        // Set active player to current turn if available
+        if (result.gameState.currentTurn) {
+          setActivePlayer(result.gameState.currentTurn)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load game state:', error)
+    }
+  }
+
+  const resetGame = async () => {
+    try {
+      const response = await fetch('/simulator', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'resetGame', roomId })
+      })
+
+      const result = await response.json()
+      if (result.success && result.gameState) {
+        setGameState(result.gameState)
+        setActivePlayer("dummy-alice")
+      }
+    } catch (error) {
+      console.error('Failed to reset game:', error)
+      // Fallback to local reset
+      setGameState(createInitialGameState())
+      setActivePlayer("dummy-alice")
+    }
   }
 
   const handleInitializeSimulatorRoom = async () => {

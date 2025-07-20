@@ -417,6 +417,59 @@ export async function initializeGame(roomId: string): Promise<{ success: boolean
   }
 }
 
+// Reset game action - resets all game data back to initial state
+export async function resetGameAction(roomId: string): Promise<{ success: boolean; error?: string; gameState?: GameState }> {
+  try {
+    const room = await getRoomData(roomId)
+    if (!room) {
+      return { success: false, error: "Room not found" }
+    }
+
+    // Create fresh initial game state
+    const players: Record<string, Player> = {}
+    room.members.forEach(member => {
+      players[member.userId] = {
+        id: member.userId,
+        name: member.user.name || "Unknown",
+        team: undefined,
+        seatPosition: undefined,
+        isReady: false
+      }
+    })
+
+    const gameState: GameState = {
+      phase: GamePhase.TEAM_SELECTION,
+      round: 1,
+      currentTurn: room.members[0].userId,
+      dealer: room.members[0].userId,
+      starter: room.members[0].userId,
+      trump: undefined,
+      highestBet: undefined,
+      players,
+      bets: {},
+      playedCards: {},
+      playerHands: {},
+      wonTricks: {},
+      scores: {},
+      turnOrder: room.members.map(m => m.userId)
+    }
+
+    await saveRoomGameState(roomId, gameState)
+
+    await broadcastGameEvent({
+      type: 'game_state_updated',
+      roomId,
+      data: { phase: gameState.phase, message: 'Game reset to initial state!' },
+      timestamp: new Date()
+    })
+
+    return { success: true, gameState }
+  } catch (error) {
+    console.error("Failed to reset game:", error)
+    return { success: false, error: "Failed to reset game" }
+  }
+}
+
 // Get game events (for real-time updates)
 export async function getGameEvents(roomId: string, since?: Date): Promise<GameEvent[]> {
   // This would fetch events from database in a real implementation
