@@ -100,12 +100,105 @@ export function generateTurnOrder(gameState: GameState): string[] {
 }
 
 // Betting logic
-export function canPlaceBet(gameState: GameState, playerId: string, bet: Omit<Bet, 'playerId' | 'timestamp'>): boolean {
-  if (gameState.phase !== GamePhase.BETS) return false
-  if (gameState.currentTurn !== playerId) return false
-  if (bet.value < 0 || bet.value > 8) return false
-  
+export function canPlaceBet(
+  gameState: GameState,
+  playerId: string,
+  bet: Omit<Bet, 'playerId' | 'timestamp'>
+): boolean {
+  // Must be player's turn
+  if (gameState.currentTurn !== playerId) {
+    return false
+  }
+
+  // Must be in betting phase
+  if (gameState.phase !== GamePhase.BETS) {
+    return false
+  }
+
+  // Player must not have already bet
+  if (gameState.bets[playerId]) {
+    return false
+  }
+
+  // Bet must be valid
+  if (!bet || !bet.betValue) {
+    return false
+  }
+
+  // Get all existing bets (excluding nulls)
+  const existingBets = Object.values(gameState.bets).filter((b): b is Bet => b !== null && b !== undefined)
+  const highestBet = existingBets.length > 0 ? getHighestBet(existingBets) : null
+
+  // Skip bet validation
+  if (bet.betValue === Bets.SKIP) {
+    return validateSkipBet(existingBets, gameState.turnOrder || [], playerId, gameState.bets)
+  }
+
+  // Regular bet validation
+  return validateRegularBet(bet, highestBet)
+}
+
+/**
+ * Validates if a skip bet is allowed
+ */
+function validateSkipBet(
+  existingBets: Bet[],
+  turnPlayerIds: string[],
+  playerId: string,
+  playerBets: Record<string, Bet>
+): boolean {
+  // Check if this is the last player to bet
+  const betsPlaced = Object.keys(playerBets).filter(id => playerBets[id] !== null).length
+  const isLastToBet = betsPlaced === turnPlayerIds.length - 1
+
+  // Last player can't skip if everyone else has skipped (someone must bet)
+  if (isLastToBet) {
+    const hasRealBet = existingBets.some(bet => bet.betValue !== Bets.SKIP)
+    if (!hasRealBet) {
+      return false // Last player must bet if no one else has
+    }
+  }
+
+  // All other players (including first player) can always skip
   return true
+}
+
+/**
+ * Validates if a regular (non-skip) bet is allowed
+ */
+function validateRegularBet(bet: Omit<Bet, 'playerId' | 'timestamp'>, highestBet: Bet | null): boolean {
+  // If no existing bets, any bet 7+ is valid (minimum bet is 7)
+  if (!highestBet) {
+    return bet.value >= 7
+  }
+
+  // Skip bets don't count as "real" bets for comparison
+  if (highestBet.betValue === Bets.SKIP) {
+    return bet.value >= 7
+  }
+
+  // Must bet higher than current highest
+  if (bet.value > highestBet.value) {
+    return true
+  }
+
+  // Same value is only allowed if upgrading from trump to no-trump
+  if (bet.value === highestBet.value) {
+    return !bet.trump && highestBet.trump
+  }
+
+  return false
+}
+
+/**
+ * Gets all possible bet values
+ */
+export function getAllBets(): Omit<Bet, 'playerId' | 'timestamp'>[] {
+  return Object.values(Bets).map(betValue => ({
+    betValue,
+    value: BetsNumericValue[betValue],
+    trump: false // Skip is always no-trump, others default to no-trump (can be changed)
+  }))
 }
 
 export function placeBet(gameState: GameState, playerId: string, betValue: Bets, trump: boolean): GameState {
@@ -137,18 +230,60 @@ export function placeBet(gameState: GameState, playerId: string, betValue: Bets,
   return newGameState
 }
 
-export function getHighestBet(bets: Bet[]): Bet | undefined {
-  if (bets.length === 0) return undefined
-  
-  const nonSkipBets = bets.filter(bet => bet.value !== 0)
-  if (nonSkipBets.length === 0) {
-    return bets[0] // Return first bet if all are skip
-  }
-  
-  return [...nonSkipBets].sort((a, b) => {
-    if (a.value !== b.value) return b.value - a.value
-    return a.trump === b.trump ? 0 : !a.trump ? -1 : 1
-  })[0]
+/**
+ * Finds the highest bet among all placed bets
+ */
+export function getHighestBet(bets: Bet[]): Bet | null {
+  if (bets.length === 0) return null
+
+  console.log('🔍 DEBUGGING getHighestBet: Input bets:', bets.map(bet => ({
+    playerId: bet.playerId,
+    value: bet.value,
+    trump: bet.trump,
+    betValue: bet.betValue
+  })))
+
+  const result = bets.reduce((highest, current) => {
+    console.log('🔍 Comparing:', {
+      current: { playerId: current.playerId, value: current.value, trump: current.trump },
+      highest: { playerId: highest.playerId, value: highest.value, trump: highest.trump }
+    })
+
+    // Compare values first - higher value always wins
+    if (current.value > highest.value) {
+      console.log('🔍 Current wins: higher value')
+      return current
+    }
+    if (current.value < highest.value) {
+      console.log('🔍 Highest wins: higher value')
+      return highest
+    }
+
+    // If values are equal, no-trump beats trump (7 no-trump > 7 trump)
+    if (current.value === highest.value) {
+      if (!current.trump && highest.trump) {
+        console.log('🔍 Current wins: no-trump beats trump at same value')
+        return current
+      }
+      if (current.trump && !highest.trump) {
+        console.log('🔍 Highest wins: no-trump beats trump at same value')
+        return highest
+      }
+    }
+
+    // If we get here, they're equal in all aspects
+    console.log('🔍 Highest wins: equal bets, keeping first one')
+    return highest
+  })
+
+  console.log('🔍 DEBUGGING getHighestBet: Winner:', {
+    playerId: result.playerId,
+    value: result.value,
+    trump: result.trump,
+    betValue: result.betValue
+  })
+
+  return result
 }
 
 export function areAllBetsPlaced(gameState: GameState): boolean {
