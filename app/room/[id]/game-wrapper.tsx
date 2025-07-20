@@ -4,6 +4,7 @@ import { useState } from "react"
 import { GameState, GamePhase, Team, CardColor } from "@/lib/game-types"
 import GamePhases from "./game-phases"
 import GameTester from "./game-tester"
+import GameInitializer from "./game-initializer"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
@@ -11,9 +12,10 @@ interface GameWrapperProps {
   roomId: string
   currentUserId: string
   initialGameState?: GameState | null
+  playerCount: number
 }
 
-export default function GameWrapper({ roomId, currentUserId, initialGameState }: GameWrapperProps) {
+export default function GameWrapper({ roomId, currentUserId, initialGameState, playerCount }: GameWrapperProps) {
   // Create a default game state if none provided
   const createDefaultGameState = (): GameState => ({
     phase: GamePhase.TEAM_SELECTION,
@@ -76,13 +78,21 @@ export default function GameWrapper({ roomId, currentUserId, initialGameState }:
           <TabsTrigger value="game">Game Interface</TabsTrigger>
           <TabsTrigger value="tester">Testing Panel</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="game" className="space-y-6">
-          <GamePhases
-            roomId={roomId}
-            gameState={gameState}
-            currentUserId={currentUserId}
-          />
+          {gameState ? (
+            <GamePhases
+              roomId={roomId}
+              gameState={gameState}
+              currentUserId={currentUserId}
+            />
+          ) : (
+            <GameInitializer
+              roomId={roomId}
+              playerCount={playerCount}
+              onGameInitialized={handleGameStateUpdate}
+            />
+          )}
         </TabsContent>
         
         <TabsContent value="tester" className="space-y-6">

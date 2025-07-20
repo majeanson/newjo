@@ -237,6 +237,71 @@ export async function selectTeamAction(
   }
 }
 
+// Initialize game when 4 players join
+export async function initializeGame(roomId: string): Promise<{ success: boolean; error?: string; gameState?: GameState }> {
+  try {
+    const room = await prisma.room.findUnique({
+      where: { id: roomId },
+      include: {
+        members: {
+          include: { user: true }
+        }
+      }
+    })
+
+    if (!room) {
+      return { success: false, error: "Room not found" }
+    }
+
+    if (room.members.length !== 4) {
+      return { success: false, error: "Need exactly 4 players to start game" }
+    }
+
+    // Create initial game state
+    const players: Record<string, any> = {}
+    room.members.forEach(member => {
+      players[member.userId] = {
+        id: member.userId,
+        name: member.user.name,
+        team: undefined,
+        seatPosition: undefined,
+        isReady: false
+      }
+    })
+
+    const gameState: GameState = {
+      phase: GamePhase.TEAM_SELECTION,
+      round: 1,
+      currentTurn: room.members[0].userId, // First player starts
+      dealer: room.members[0].userId,
+      starter: room.members[0].userId,
+      trump: undefined,
+      highestBet: undefined,
+      players,
+      bets: {},
+      playedCards: {},
+      playerHands: {},
+      wonTricks: {},
+      scores: {},
+      turnOrder: room.members.map(m => m.userId)
+    }
+
+    await saveRoomGameState(roomId, gameState)
+
+    await broadcastGameEvent({
+      type: 'game_state_updated',
+      roomId,
+      data: { phase: gameState.phase, message: 'Game initialized!' },
+      timestamp: new Date()
+    })
+
+    return { success: true, gameState }
+  } catch (error) {
+    console.error("Failed to initialize game:", error)
+    return { success: false, error: "Failed to initialize game" }
+  }
+}
+
 // Get game events (for real-time updates)
 export async function getGameEvents(roomId: string, since?: Date): Promise<GameEvent[]> {
   // This would fetch events from database in a real implementation

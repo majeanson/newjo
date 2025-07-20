@@ -31,12 +31,16 @@ export default async function RoomPage({ params }: RoomPageProps) {
         roomId={id}
         currentUserId={user.id}
         initialGameState={gameState}
+        playerCount={room.members.length}
       />
 
-      <div className="mt-8 pt-8 border-t">
-        <h2 className="text-lg font-semibold mb-4">Room Management:</h2>
-        <RoomContent room={room} currentUser={user} />
-      </div>
+      {/* Only show room management if no game is active */}
+      {!gameState && (
+        <div className="mt-8 pt-8 border-t">
+          <h2 className="text-lg font-semibold mb-4">Room Management:</h2>
+          <RoomContent room={room} currentUser={user} />
+        </div>
+      )}
     </div>
   )
 }
