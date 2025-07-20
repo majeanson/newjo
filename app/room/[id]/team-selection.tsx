@@ -31,7 +31,7 @@ export default function TeamSelection({ roomId, gameState, currentUserId, onGame
     setError(null)
 
     try {
-      const result = await selectTeamAction(roomId, team)
+      const result = await selectTeamAction(roomId, team, currentUserId)
       
       if (result.success && result.gameState) {
         onGameStateUpdate(result.gameState)

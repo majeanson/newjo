@@ -194,13 +194,19 @@ export async function joinGame(roomId: string): Promise<{ success: boolean; erro
 
 // Select team action
 export async function selectTeamAction(
-  roomId: string, 
-  team: Team
+  roomId: string,
+  team: Team,
+  playerId?: string
 ): Promise<{ success: boolean; error?: string; gameState?: GameState }> {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return { success: false, error: "Not authenticated" }
+    // Use provided playerId (for simulator) or get from session (for real users)
+    let userId = playerId
+    if (!userId) {
+      const user = await getCurrentUser()
+      if (!user) {
+        return { success: false, error: "Not authenticated" }
+      }
+      userId = user.id
     }
 
     const gameState = await getRoomGameState(roomId)
@@ -212,6 +218,11 @@ export async function selectTeamAction(
       return { success: false, error: "Not in team selection phase" }
     }
 
+    // Check if player exists in game state
+    if (!gameState.players[userId]) {
+      return { success: false, error: "Player not found in game" }
+    }
+
     // Check team capacity
     const teamCount = Object.values(gameState.players).filter(p => p.team === team).length
     if (teamCount >= 2) {
@@ -219,7 +230,7 @@ export async function selectTeamAction(
     }
 
     // Update player team
-    gameState.players[user.id].team = team
+    gameState.players[userId].team = team
 
     // Check if teams are balanced (2v2)
     const teamACount = Object.values(gameState.players).filter(p => p.team === Team.A).length
