@@ -7,6 +7,9 @@ export type GameEvent =
   | { type: "ROOM_UPDATED"; roomId: string }
   | { type: "bet_placed"; roomId: string; playerId?: string; betValue?: string; trump?: boolean; playerName?: string; betsRemaining?: number }
   | { type: "betting_complete"; roomId: string; playerId?: string; phase?: string; highestBet?: number; highestBetter?: string; trump?: boolean; allBetsComplete?: boolean }
+  | { type: "card_played"; roomId: string; playerId?: string; card?: string; playerName?: string; cardsInTrick?: number }
+  | { type: "trick_complete"; roomId: string; playerId?: string; winner?: string; winnerName?: string }
+  | { type: "round_complete"; roomId: string; playerId?: string; round?: number; scores?: any }
   | { type: "game_state_updated"; roomId: string; playerId?: string; [key: string]: any }
 
 // In-memory event store (in production, use Redis or similar)

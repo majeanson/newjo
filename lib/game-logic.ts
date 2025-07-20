@@ -376,9 +376,11 @@ export function canPlayCard(gameState: GameState, playerId: string, card: Card):
     return true
   }
 
-  // Must follow suit if possible
+  // Must follow suit if possible, but trump cards can always be played
   const firstColor = firstCard.color
+  const trump = gameState.trump
   console.log(`🎨 First card color (must follow): ${firstColor}`)
+  console.log(`👑 Trump color: ${trump}`)
 
   const cardsOfFirstColor = playerHand.filter(c => c.color === firstColor)
   const hasColorInHand = cardsOfFirstColor.length > 0
@@ -386,8 +388,16 @@ export function canPlayCard(gameState: GameState, playerId: string, card: Card):
   console.log(`🔍 Has ${firstColor} in hand: ${hasColorInHand}`)
   console.log(`🎴 Trying to play: ${card.color}-${card.value}`)
 
-  const canPlay = card.color === firstColor || !hasColorInHand
-  console.log(`✅ Can play card: ${canPlay} (same color: ${card.color === firstColor}, no color in hand: ${!hasColorInHand})`)
+  // Check if the card being played is trump
+  const isPlayingTrump = trump && card.color === trump
+  console.log(`👑 Playing trump card: ${isPlayingTrump}`)
+
+  // Can play if:
+  // 1. Same color as first card (following suit)
+  // 2. Don't have any cards of the first color (can't follow suit)
+  // 3. Playing a trump card (trump can always be played)
+  const canPlay = card.color === firstColor || !hasColorInHand || isPlayingTrump
+  console.log(`✅ Can play card: ${canPlay} (same color: ${card.color === firstColor}, no color in hand: ${!hasColorInHand}, trump: ${isPlayingTrump})`)
 
   return canPlay
 }

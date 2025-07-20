@@ -387,13 +387,42 @@ export async function playCardAction(
 
     let newGameState = playCard(gameState, userId, card)
 
+    // Broadcast card played event
+    console.log('🎯 Broadcasting card_played event for:', userId)
+    await broadcastGameEvent({
+      type: 'card_played',
+      roomId,
+      userId,
+      data: {
+        card: `${card.color}-${card.value}`,
+        playerName: newGameState.players[userId]?.name,
+        cardsInTrick: Object.keys(newGameState.playedCards).length
+      },
+      timestamp: new Date()
+    })
+
     // Check if trick is complete
     if (isTrickComplete(newGameState)) {
+      console.log('🎯 Trick complete! Processing trick win...')
+
       // Process trick win after a short delay for UI
       newGameState = processTrickWin(newGameState)
 
+      // Broadcast trick complete event
+      await broadcastGameEvent({
+        type: 'trick_complete',
+        roomId,
+        userId,
+        data: {
+          winner: newGameState.currentTurn,
+          winnerName: newGameState.players[newGameState.currentTurn]?.name
+        },
+        timestamp: new Date()
+      })
+
       // Check if round is complete
       if (isRoundComplete(newGameState)) {
+        console.log('🎯 Round complete! Processing round scoring...')
         newGameState.phase = GamePhase.TRICK_SCORING
 
         // Automatically process round scoring
@@ -403,6 +432,18 @@ export async function playCardAction(
         // Process the round end to update scores and prepare next round
         newGameState = processRoundEnd(newGameState)
         console.log(`🎯 Round ${newGameState.round - 1} scored. Starting round ${newGameState.round}`)
+
+        // Broadcast round complete event
+        await broadcastGameEvent({
+          type: 'round_complete',
+          roomId,
+          userId,
+          data: {
+            round: newGameState.round - 1,
+            scores: roundScores
+          },
+          timestamp: new Date()
+        })
       }
     }
 
