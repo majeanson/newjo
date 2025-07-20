@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { getCurrentUser } from "./auth"
-import { getRoomData as dbGetRoomData, playCard as dbPlayCard } from "@/lib/database"
+import { getRoomData as dbGetRoomData } from "@/lib/database"
 import { eventStore } from "@/lib/events"
 
 export async function drawCardAction(prevState: {error?: string; success?: boolean; card?: string  } | null, formData: FormData) {
@@ -45,34 +45,7 @@ export async function drawCardAction(prevState: {error?: string; success?: boole
   }
 }
 
-export async function playCard(roomId: string, card: string) {
-  const user = await getCurrentUser()
-  if (!user) {
-    return { error: "Not authenticated" }
-  }
-
-  try {
-    const success = await dbPlayCard(roomId, user.id, card)
-    if (success) {
-      // Emit real-time event
-      eventStore.emit({
-        type: "CARD_PLAYED",
-        roomId,
-        card,
-        playerName: user.name,
-        playerId: user.id
-      })
-
-      revalidatePath(`/room/${roomId}`)
-      return { success: true }
-    } else {
-      return { error: "Failed to play card" }
-    }
-  } catch (error) {
-    console.error("Failed to play card:", error)
-    return { error: "Failed to play card" }
-  }
-}
+// playCard function moved to game-actions.ts
 
 export async function getRoomData(roomId: string) {
   try {

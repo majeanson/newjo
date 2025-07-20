@@ -48,14 +48,6 @@ export async function getRoomData(roomId: string) {
         include: {
           user: true
         }
-      },
-      playedCards: {
-        include: {
-          user: true
-        },
-        orderBy: {
-          playedAt: 'desc'
-        }
       }
     }
   })
@@ -79,7 +71,6 @@ export async function createRoom(name: string, hostId: string): Promise<Room> {
       data: {
         name,
         hostId,
-        currentDeck: ["A♠", "K♥", "Q♦", "J♣", "10♠", "9♥", "8♦", "7♣"],
       },
       include: {
         host: true,
@@ -139,21 +130,7 @@ export async function joinRoom(roomId: string, userId: string): Promise<boolean>
   }
 }
 
-export async function playCard(roomId: string, userId: string, card: string): Promise<boolean> {
-  try {
-    await prisma.playedCard.create({
-      data: {
-        roomId,
-        userId,
-        card
-      }
-    })
-    return true
-  } catch (error) {
-    console.error("Failed to play card:", error)
-    return false
-  }
-}
+// playCard function removed - now handled by game-actions.ts
 
 // Types (matching Prisma schema)
 export type User = {
@@ -167,18 +144,11 @@ export type Room = {
   name: string
   hostId: string
   isActive: boolean
-  currentDeck: string[]
   createdAt: Date
   updatedAt: Date
   host: User
   members: Array<{ user: User }>
-  playedCards?: Array<{
-    id: string
-    card: string
-    playedAt: Date
-    user: User
-  }>
-  _count: { members: number }
+  _count?: { members: number }
 }
 
 

@@ -1,7 +1,7 @@
 "use client"
 
 import { useActionState, useEffect, useState } from "react"
-import { drawCardAction, playCard } from "../../actions/game"
+import { drawCardAction } from "../../actions/game"
 import { useGameEvents } from "@/hooks/use-game-events"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -31,10 +31,8 @@ type Room = {
   id: string
   name: string
   hostId: string
-  currentDeck: string[]
   host: User
   members: RoomMember[]
-  playedCards: PlayedCard[]
 }
 
 interface RoomContentProps {
@@ -46,17 +44,10 @@ export default function RoomContent({ room: initialRoom, currentUser }: RoomCont
   const [drawState, drawAction, isDrawing] = useActionState(drawCardAction, null)
   const [cardToPlay, setCardToPlay] = useState("")
   const [lastDrawnCard, setLastDrawnCard] = useState<string | null>(null)
-  const [deckCount, setDeckCount] = useState(initialRoom.currentDeck.length)
+  const [deckCount, setDeckCount] = useState(32) // Default deck size
   const [recentPlays, setRecentPlays] = useState<
     Array<{ card: string; playerName: string; playerId: string; timestamp: Date }>
-  >(
-    initialRoom.playedCards.map((play) => ({
-      card: play.card,
-      playerName: play.user.name,
-      playerId: play.user.id,
-      timestamp: new Date(play.playedAt),
-    })),
-  )
+  >([])
 
   const { events, isConnected } = useGameEvents(initialRoom.id)
   const isHost = initialRoom.hostId === currentUser.id
@@ -102,7 +93,8 @@ export default function RoomContent({ room: initialRoom, currentUser }: RoomCont
   const handlePlayCard = async () => {
     if (!cardToPlay.trim()) return
 
-    await playCard(initialRoom.id, cardToPlay.trim())
+    // TODO: Implement with new game actions
+    console.log("Playing card:", cardToPlay.trim())
     setCardToPlay("")
   }
 

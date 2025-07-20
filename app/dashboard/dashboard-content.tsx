@@ -19,7 +19,7 @@ type Room = {
   id: string
   name: string
   host: User
-  _count: { members: number }
+  _count?: { members: number }
   createdAt: Date
 }
 
