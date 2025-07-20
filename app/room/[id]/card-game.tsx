@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -12,11 +12,10 @@ interface CardGameProps {
   currentUserId: string
 }
 
-export default function CardGame({ roomId, gameState, currentUserId }: CardGameProps) {
+export default function CardGame({ gameState, currentUserId }: CardGameProps) {
   const [selectedCard, setSelectedCard] = useState<GameCard | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
 
-  const currentPlayer = gameState.players[currentUserId]
   const isMyTurn = gameState.currentTurn === currentUserId
   const playerHand = gameState.playerHands[currentUserId] || []
   const playedCards = Object.values(gameState.playedCards)
@@ -48,7 +47,6 @@ export default function CardGame({ roomId, gameState, currentUserId }: CardGameP
       case 'red': return 'bg-red-100 border-red-300 text-red-800'
       case 'blue': return 'bg-blue-100 border-blue-300 text-blue-800'
       case 'green': return 'bg-green-100 border-green-300 text-green-800'
-      case 'yellow': return 'bg-yellow-100 border-yellow-300 text-yellow-800'
       case 'brown': return 'bg-amber-100 border-amber-300 text-amber-800'
       default: return 'bg-gray-100 border-gray-300 text-gray-800'
     }
@@ -67,12 +65,12 @@ export default function CardGame({ roomId, gameState, currentUserId }: CardGameP
         </CardTitle>
         {highestBet && (
           <p className="text-sm text-gray-600">
-            Highest bet: {highestBet.value} by {gameState.players[highestBet.playerId]?.name}
+            {`Highest bet: ${highestBet.value} by ${gameState.players[highestBet.playerId]?.name}`}
             {highestBet.trump && " (with trump)"}
           </p>
         )}
         {isMyTurn && (
-          <p className="text-sm text-green-600 font-semibold">It's your turn!</p>
+          <p className="text-sm text-green-600 font-semibold">{`It's your turn!`}</p>
         )}
       </CardHeader>
       
@@ -150,7 +148,7 @@ export default function CardGame({ roomId, gameState, currentUserId }: CardGameP
                   <span className="flex items-center gap-2">
                     {player.name}
                     {player.team && <Badge variant="outline">Team {player.team}</Badge>}
-                    {isCurrentTurn && <Badge variant="default" size="sm">Turn</Badge>}
+                    {isCurrentTurn && <Badge variant="default" className="text-xs">Turn</Badge>}
                   </span>
                   <Badge variant="secondary">{tricks} tricks</Badge>
                 </div>

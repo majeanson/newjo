@@ -1,14 +1,8 @@
 "use client"
-
-import { useState, useActionState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Checkbox } from "@/components/ui/checkbox"
-import { GamePhase, Team, GameState } from "@/lib/game-types"
+import { GamePhase, GameState } from "@/lib/game-types"
 import CardGame from "./card-game"
 
 interface GamePhasesProps {
@@ -59,7 +53,7 @@ export default function GamePhases({ roomId, gameState, currentUserId }: GamePha
         {gameState.phase === GamePhase.BETS && (
           <div>
             <p className="text-sm text-gray-600">Betting phase - players place their bets</p>
-            {isMyTurn && <p className="text-green-600 font-semibold">It's your turn to bet!</p>}
+            {isMyTurn && <p className="text-green-600 font-semibold">{`It's your turn to bet!`}</p>}
           </div>
         )}
 

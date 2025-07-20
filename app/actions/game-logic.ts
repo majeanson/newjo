@@ -3,16 +3,11 @@
 import { revalidatePath } from "next/cache"
 import { getCurrentUser } from "./auth"
 import { prisma } from "@/lib/prisma"
+import { GameState, GamePhase, Card, Team, Player } from "@/lib/game-types"
 import {
-  GamePhase,
-  Team,
-  GameState,
-  Player,
-  Card,
   selectTeam,
   selectSeat,
   placeBet,
-  areAllPlayersReady,
   areTeamsBalanced,
   areSeatsSelected,
   generateTurnOrder,

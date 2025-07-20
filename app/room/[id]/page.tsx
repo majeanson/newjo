@@ -58,11 +58,11 @@ function createMockGameState(_roomId: string, userId: string): GameState {
     playedCards: {},
     playerHands: {
       [userId]: [
-        { id: "1", color: "red" as any, value: 5, playerId: userId, trickNumber: 0, playOrder: 0 },
-        { id: "2", color: "blue" as any, value: 3, playerId: userId, trickNumber: 0, playOrder: 0 },
-        { id: "3", color: "green" as any, value: 7, playerId: userId, trickNumber: 0, playOrder: 0 },
-        { id: "4", color: "yellow" as any, value: 2, playerId: userId, trickNumber: 0, playOrder: 0 },
-        { id: "5", color: "brown" as any, value: 0, playerId: userId, trickNumber: 0, playOrder: 0 },
+        { id: "1", color: "red" as string, value: 5, playerId: userId, trickNumber: 0, playOrder: 0 },
+        { id: "2", color: "blue" as string, value: 3, playerId: userId, trickNumber: 0, playOrder: 0 },
+        { id: "3", color: "green" as string, value: 7, playerId: userId, trickNumber: 0, playOrder: 0 },
+        { id: "4", color: "brown" as string, value: 2, playerId: userId, trickNumber: 0, playOrder: 0 },
+        { id: "5", color: "red" as string, value: 0, playerId: userId, trickNumber: 0, playOrder: 0 },
       ]
     },
     wonTricks: {

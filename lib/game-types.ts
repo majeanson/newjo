@@ -15,7 +15,6 @@ export enum CardColor {
   RED = 'red',
   BLUE = 'blue', 
   GREEN = 'green',
-  YELLOW = 'yellow',
   BROWN = 'brown'
 }
 
@@ -83,7 +82,7 @@ export interface RoundResult {
 export const CARDS_PER_PLAYER = 8
 export const MAX_PLAYERS = 4
 export const CARD_VALUES = [0, 1, 2, 3, 4, 5, 6, 7]
-export const CARD_COLORS = [CardColor.RED, CardColor.BLUE, CardColor.GREEN, CardColor.YELLOW, CardColor.BROWN]
+export const CARD_COLORS = [CardColor.RED, CardColor.BLUE, CardColor.GREEN, CardColor.BROWN]
 
 // Special card points
 export const BONHOMME_ROUGE_POINTS = 5 // Red 0
