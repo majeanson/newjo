@@ -55,33 +55,26 @@ export function useGameState({ roomId, initialGameState, onGameEvent }: UseGameS
 
         eventSource.onmessage = (event) => {
           try {
-            const gameEvent: GameEvent = JSON.parse(event.data)
-            console.log('Received SSE event:', gameEvent.type)
+            const data = JSON.parse(event.data)
 
-            // Handle different event types
-            switch (gameEvent.type) {
-              case 'connected':
-                console.log('SSE connection confirmed')
-                break
-              case 'game_state':
-                console.log('Received initial game state via SSE')
-                setGameState(gameEvent.data)
-                break
-              case 'game_event':
-                console.log('Received game event via SSE:', gameEvent.data?.type)
-                // Refresh game state when any game event occurs
-                refreshGameState()
-                break
-              case 'heartbeat':
-                // Keep connection alive
-                break
-              default:
-                console.log('Unknown SSE event type:', gameEvent.type)
+            // Handle different event types (same as simulator)
+            if (data.type === "CONNECTED") {
+              console.log('SSE connected to room:', roomId)
+              return
             }
+
+            if (data.type === "HEARTBEAT") {
+              // Keep connection alive
+              return
+            }
+
+            // Any other event means game state changed - refresh it
+            console.log('Game event received, refreshing state:', data)
+            refreshGameState()
 
             // Call custom event handler if provided
             if (onGameEvent) {
-              onGameEvent(gameEvent)
+              onGameEvent(data)
             }
           } catch (error) {
             console.error('Error parsing SSE event:', error)
