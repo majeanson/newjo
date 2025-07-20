@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -10,7 +10,8 @@ import TeamSelection from "../room/[id]/team-selection"
 import SeatSelection from "../room/[id]/seat-selection"
 import BettingPhase from "../room/[id]/betting-phase"
 import CardGame from "../room/[id]/card-game"
-import { Users, RotateCcw } from "lucide-react"
+import { Users, RotateCcw, Zap } from "lucide-react"
+import { forceInitializeGame, getRoomGameState } from "../actions/game-actions"
 
 // You can update this with your actual room ID
 const SIMULATOR_ROOM_ID = "cmdb1prsm0004ud64qy6xfix6" // Replace with your room ID
@@ -26,6 +27,7 @@ export default function GameSimulator() {
   const [gameState, setGameState] = useState<GameState>(createInitialGameState())
   const [activePlayer, setActivePlayer] = useState<string>("alice")
   const [roomId, setRoomId] = useState<string>(SIMULATOR_ROOM_ID)
+  const [isForceInitializing, setIsForceInitializing] = useState(false)
 
   function createInitialGameState(): GameState {
     const players: Record<string, any> = {}
@@ -66,6 +68,34 @@ export default function GameSimulator() {
   const resetGame = () => {
     setGameState(createInitialGameState())
     setActivePlayer("alice")
+  }
+
+  const handleForceInitialize = async () => {
+    setIsForceInitializing(true)
+    try {
+      const result = await forceInitializeGame(roomId)
+      if (result.success) {
+        // Fetch the real game state from database after initialization
+        const realGameState = await getRoomGameState(roomId)
+        if (realGameState) {
+          setGameState(realGameState)
+          console.log("✅ Force initialized game from simulator")
+        } else {
+          // Fallback to the returned game state
+          if (result.gameState) {
+            setGameState(result.gameState)
+          }
+        }
+      } else {
+        console.error("❌ Force initialization failed:", result.error)
+        alert(`Failed to force initialize: ${result.error}`)
+      }
+    } catch (error) {
+      console.error("❌ Force initialization error:", error)
+      alert("Failed to force initialize game")
+    } finally {
+      setIsForceInitializing(false)
+    }
   }
 
   const setPhase = (phase: GamePhase) => {
@@ -152,6 +182,7 @@ export default function GameSimulator() {
             <ol className="space-y-2 text-sm">
               <li><strong>1. Create a room:</strong> Go to Dashboard → Create any room → Copy the room ID from URL</li>
               <li><strong>2. Update room ID:</strong> Replace <code className="bg-blue-100 px-1 rounded">SIMULATOR_ROOM_ID</code> in the code with your room ID</li>
+              <li><strong>3. If stuck in waiting:</strong> Use "Force Start Real Room" button to initialize the game</li>
             </ol>
             <p className="text-xs bg-blue-100 p-2 rounded">
               <strong>Current Room ID:</strong> <code>{roomId}</code>
@@ -172,6 +203,24 @@ export default function GameSimulator() {
               <Button onClick={resetGame} variant="outline" size="sm">
                 <RotateCcw className="h-4 w-4 mr-2" />
                 Reset Game
+              </Button>
+              <Button
+                onClick={handleForceInitialize}
+                disabled={isForceInitializing}
+                variant="default"
+                size="sm"
+              >
+                {isForceInitializing ? (
+                  <>
+                    <RotateCcw className="h-4 w-4 mr-2 animate-spin" />
+                    Force Starting...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="h-4 w-4 mr-2" />
+                    Force Start Real Room
+                  </>
+                )}
               </Button>
             </div>
           </CardTitle>
@@ -288,8 +337,8 @@ export default function GameSimulator() {
               return (
                 <div key={player.id} className={`p-2 rounded ${player.color}`}>
                   <div className="font-medium">{player.name}</div>
-                  <div>Team: {playerState.team || "None"}</div>
-                  <div>Seat: {playerState.seatPosition !== undefined ? playerState.seatPosition + 1 : "None"}</div>
+                  <div>Team: {playerState?.team || "None"}</div>
+                  <div>Seat: {playerState?.seatPosition !== undefined ? playerState.seatPosition + 1 : "None"}</div>
                   <div>Cards: {gameState.playerHands[player.id]?.length || 0}</div>
                 </div>
               )

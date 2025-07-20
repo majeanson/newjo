@@ -237,6 +237,85 @@ export async function selectTeamAction(
   }
 }
 
+// Force initialize game (for existing rooms with 4 players)
+export async function forceInitializeGame(roomId: string): Promise<{ success: boolean; error?: string; gameState?: GameState }> {
+  try {
+    const room = await prisma.room.findUnique({
+      where: { id: roomId },
+      include: {
+        members: {
+          include: { user: true }
+        }
+      }
+    })
+
+    if (!room) {
+      return { success: false, error: "Room not found" }
+    }
+
+    if (room.members.length < 4) {
+      return { success: false, error: "Need 4 players to start game" }
+    }
+
+    // Create initial game state with team selection phase
+    const players: Record<string, Player> = {}
+    room.members.forEach(member => {
+      players[member.userId] = {
+        id: member.userId,
+        name: member.user.name,
+        team: undefined,
+        seatPosition: undefined,
+        isReady: false
+      }
+    })
+
+    const gameState: GameState = {
+      phase: GamePhase.TEAM_SELECTION,
+      round: 1,
+      currentTurn: room.members[0].userId,
+      dealer: room.members[0].userId,
+      starter: room.members[0].userId,
+      trump: undefined,
+      highestBet: undefined,
+      players,
+      bets: {},
+      playedCards: {},
+      playerHands: {},
+      wonTricks: {},
+      scores: {},
+      turnOrder: room.members.map(m => m.userId)
+    }
+
+    // Save game state to database using correct schema fields
+    await prisma.room.update({
+      where: { id: roomId },
+      data: {
+        gamePhase: GamePhase.TEAM_SELECTION,
+        currentRound: 1,
+        currentTrick: 1,
+        currentTurn: room.members[0].userId,
+        dealerUserId: room.members[0].userId,
+        starterUserId: room.members[0].userId,
+        playerTeams: {},
+        playerSeats: {},
+        playerReady: {},
+        playerHands: {},
+        playedCards: {},
+        playerBets: {},
+        tricksWon: {},
+        gameScores: {},
+        roundHistory: []
+      }
+    })
+
+    console.log(`🎮 Force initialized game for room ${roomId} with ${room.members.length} players`)
+    return { success: true, gameState }
+  } catch (error) {
+    console.error("Failed to force initialize game:", error)
+    return { success: false, error: "Failed to initialize game" }
+  }
+}
+
 // Initialize game when 4 players join
 export async function initializeGame(roomId: string): Promise<{ success: boolean; error?: string; gameState?: GameState }> {
   try {

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Users, Play, Loader2 } from "lucide-react"
-import { initializeGame } from "../../actions/game-actions"
+import { initializeGame, forceInitializeGame } from "../../actions/game-actions"
 import { GameState } from "@/lib/game-types"
 
 interface GameInitializerProps {
@@ -20,13 +20,13 @@ export default function GameInitializer({ roomId, playerCount, onGameInitialized
 
   const handleInitializeGame = async () => {
     if (isInitializing) return
-    
+
     setIsInitializing(true)
     setError(null)
 
     try {
       const result = await initializeGame(roomId)
-      
+
       if (result.success && result.gameState) {
         onGameInitialized(result.gameState)
       } else {
@@ -35,6 +35,28 @@ export default function GameInitializer({ roomId, playerCount, onGameInitialized
     } catch (error) {
       console.error("Game initialization error:", error)
       setError("Failed to initialize game")
+    } finally {
+      setIsInitializing(false)
+    }
+  }
+
+  const handleForceInitializeGame = async () => {
+    if (isInitializing) return
+
+    setIsInitializing(true)
+    setError(null)
+
+    try {
+      const result = await forceInitializeGame(roomId)
+
+      if (result.success && result.gameState) {
+        onGameInitialized(result.gameState)
+      } else {
+        setError(result.error || "Failed to force initialize game")
+      }
+    } catch (error) {
+      console.error("Force game initialization error:", error)
+      setError("Failed to force initialize game")
     } finally {
       setIsInitializing(false)
     }
@@ -96,24 +118,46 @@ export default function GameInitializer({ roomId, playerCount, onGameInitialized
               </div>
             )}
             
-            <Button 
-              onClick={handleInitializeGame}
-              disabled={isInitializing}
-              size="lg"
-              className="w-full"
-            >
-              {isInitializing ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Starting Game...
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4 mr-2" />
-                  Start Card Game
-                </>
-              )}
-            </Button>
+            <div className="space-y-3">
+              <Button
+                onClick={handleInitializeGame}
+                disabled={isInitializing}
+                size="lg"
+                className="w-full"
+              >
+                {isInitializing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Starting Game...
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4 mr-2" />
+                    Start Card Game
+                  </>
+                )}
+              </Button>
+
+              <Button
+                onClick={handleForceInitializeGame}
+                disabled={isInitializing}
+                variant="outline"
+                size="lg"
+                className="w-full"
+              >
+                {isInitializing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Force Starting...
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4 mr-2" />
+                    Force Start Game (if stuck)
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="text-center p-4 bg-gray-50 border border-gray-200 rounded-lg">

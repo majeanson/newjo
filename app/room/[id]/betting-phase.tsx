@@ -9,18 +9,13 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Coins, Crown, Clock } from "lucide-react"
 import { GameState, Team } from "@/lib/game-types"
+import { placeBetAction } from "@/app/actions/game-logic"
 
 interface BettingPhaseProps {
   roomId: string
   gameState: GameState
   currentUserId: string
   onGameStateUpdate: (newGameState: GameState) => void
-}
-
-// Mock betting action - replace with real action
-async function placeBetAction(roomId: string, value: number, trump: boolean) {
-  console.log(`Placing bet: ${value} (trump: ${trump}) in room ${roomId}`)
-  return { success: true, gameState: null }
 }
 
 export default function BettingPhase({ roomId, gameState, currentUserId, onGameStateUpdate }: BettingPhaseProps) {
