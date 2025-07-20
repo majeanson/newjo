@@ -174,11 +174,10 @@ export default function GameInitializer({ roomId, playerCount, onGameInitialized
         <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded">
           <p className="font-medium mb-1">Game Flow:</p>
           <ol className="space-y-1">
-            <li>1. Team Selection (2 vs 2)</li>
-            <li>2. Seat Selection (choose positions)</li>
-            <li>3. Betting Phase (bid on tricks)</li>
-            <li>4. Card Playing (8 cards each)</li>
-            <li>5. Scoring & Next Round</li>
+            <li>1. Team Selection (2 vs 2, seats auto-assigned A1, B2, A3, B4)</li>
+            <li>2. Betting Phase (bid on tricks)</li>
+            <li>3. Card Playing (8 cards each)</li>
+            <li>4. Scoring & Next Round</li>
           </ol>
         </div>
       </CardContent>

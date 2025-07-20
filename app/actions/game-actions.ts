@@ -237,7 +237,18 @@ export async function selectTeamAction(
     const teamBCount = Object.values(gameState.players).filter(p => p.team === Team.B).length
 
     if (teamACount === 2 && teamBCount === 2) {
-      gameState.phase = GamePhase.SEAT_SELECTION
+      // Automatically assign seats in A1, B2, A3, B4 pattern
+      const teamAPlayers = Object.values(gameState.players).filter(p => p.team === Team.A)
+      const teamBPlayers = Object.values(gameState.players).filter(p => p.team === Team.B)
+
+      // Assign seats: A1, B2, A3, B4
+      teamAPlayers[0].seatPosition = 0  // A1
+      teamBPlayers[0].seatPosition = 1  // B2
+      teamAPlayers[1].seatPosition = 2  // A3
+      teamBPlayers[1].seatPosition = 3  // B4
+
+      // Skip seat selection and go directly to betting
+      gameState.phase = GamePhase.BETS
     }
 
     await saveRoomGameState(roomId, gameState)

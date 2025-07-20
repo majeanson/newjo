@@ -1,13 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { GameState, GamePhase, Team, CardColor } from "@/lib/game-types"
 import TeamSelection from "../room/[id]/team-selection"
-import SeatSelection from "../room/[id]/seat-selection"
 import BettingPhase from "../room/[id]/betting-phase"
 import CardGame from "../room/[id]/card-game"
 import { Users, RotateCcw, Zap } from "lucide-react"
@@ -127,33 +126,34 @@ export default function GameSimulator() {
     const newGameState = { ...gameState, phase }
     
     // Add mock data based on phase
-    if (phase === GamePhase.SEAT_SELECTION) {
-      newGameState.players["dummy-alice"].team = Team.A
-      newGameState.players["dummy-bob"].team = Team.B
-      newGameState.players["dummy-charlie"].team = Team.A
-      newGameState.players["dummy-diana"].team = Team.B
-    }
-
     if (phase === GamePhase.BETS) {
+      // Set teams and seats in A1, B2, A3, B4 pattern
       newGameState.players["dummy-alice"].team = Team.A
+      newGameState.players["dummy-alice"].seatPosition = 0  // A1
+
       newGameState.players["dummy-bob"].team = Team.B
+      newGameState.players["dummy-bob"].seatPosition = 1    // B2
+
       newGameState.players["dummy-charlie"].team = Team.A
+      newGameState.players["dummy-charlie"].seatPosition = 2 // A3
+
       newGameState.players["dummy-diana"].team = Team.B
-      newGameState.players["dummy-alice"].seatPosition = 0
-      newGameState.players["dummy-bob"].seatPosition = 1
-      newGameState.players["dummy-charlie"].seatPosition = 2
-      newGameState.players["dummy-diana"].seatPosition = 3
+      newGameState.players["dummy-diana"].seatPosition = 3   // B4
     }
     
     if (phase === GamePhase.CARDS) {
+      // Set teams and seats in A1, B2, A3, B4 pattern
       newGameState.players["dummy-alice"].team = Team.A
+      newGameState.players["dummy-alice"].seatPosition = 0  // A1
+
       newGameState.players["dummy-bob"].team = Team.B
+      newGameState.players["dummy-bob"].seatPosition = 1    // B2
+
       newGameState.players["dummy-charlie"].team = Team.A
+      newGameState.players["dummy-charlie"].seatPosition = 2 // A3
+
       newGameState.players["dummy-diana"].team = Team.B
-      newGameState.players["dummy-alice"].seatPosition = 0
-      newGameState.players["dummy-bob"].seatPosition = 1
-      newGameState.players["dummy-charlie"].seatPosition = 2
-      newGameState.players["dummy-diana"].seatPosition = 3
+      newGameState.players["dummy-diana"].seatPosition = 3   // B4
 
       // Add mock cards for each player
       newGameState.playerHands = {
@@ -190,9 +190,7 @@ export default function GameSimulator() {
     setGameState(newGameState)
   }
 
-  const getPlayerColor = (playerId: string) => {
-    return DUMMY_PLAYERS.find(p => p.id === playerId)?.color || "bg-gray-100"
-  }
+
 
   return (
     <div className="space-y-6">
@@ -282,9 +280,6 @@ export default function GameSimulator() {
             <Button onClick={() => setPhase(GamePhase.TEAM_SELECTION)} variant="outline" size="sm">
               Team Selection
             </Button>
-            <Button onClick={() => setPhase(GamePhase.SEAT_SELECTION)} variant="outline" size="sm">
-              Seat Selection
-            </Button>
             <Button onClick={() => setPhase(GamePhase.BETS)} variant="outline" size="sm">
               Betting
             </Button>
@@ -326,12 +321,12 @@ export default function GameSimulator() {
                 )}
 
                 {gameState.phase === GamePhase.SEAT_SELECTION && (
-                  <SeatSelection
-                    roomId={roomId}
-                    gameState={gameState}
-                    currentUserId={player.id}
-                    onGameStateUpdate={handleGameStateUpdate}
-                  />
+                  <div className="text-center p-4 bg-gray-50 rounded">
+                    <p className="text-gray-600">Seat selection is automatic!</p>
+                    <p className="text-sm text-gray-500 mt-2">
+                      Seats are assigned in A1, B2, A3, B4 pattern when teams are complete.
+                    </p>
+                  </div>
                 )}
 
                 {gameState.phase === GamePhase.BETS && (
