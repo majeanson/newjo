@@ -9,7 +9,7 @@ interface RoomPageProps {
 
 export default async function RoomPage({ params }: RoomPageProps) {
   const user = await getCurrentUser()
-  
+
   if (!user) {
     redirect("/")
   }
@@ -21,7 +21,11 @@ export default async function RoomPage({ params }: RoomPageProps) {
     redirect("/dashboard")
   }
 
-  return <RoomContent room={room} currentUser={user} />
+  return (
+    <div className="container mx-auto p-4 space-y-6">
+      <RoomContent room={room} currentUser={user} />
+    </div>
+  )
 }
 
 

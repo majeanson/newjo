@@ -3,6 +3,7 @@
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
+import { User } from "@/lib/database"
 
 export async function getCurrentUser() {
   const cookieStore = await cookies()
@@ -66,7 +67,7 @@ export async function signIn(_prevState: { error?: string } | null, formData: Fo
       }
     })
 
-    let user: any
+    let user: User
     let sessionId: string
 
     if (existingUser && existingUser.sessions.length > 0) {
@@ -109,7 +110,7 @@ export async function signIn(_prevState: { error?: string } | null, formData: Fo
     })
 
     return { success: true, redirectTo: "/dashboard" }
-  } catch (error: any) {
+  } catch (error) {
     console.error("Sign in error:", error)
     return { error: "Failed to sign in. Please try again." }
   }
