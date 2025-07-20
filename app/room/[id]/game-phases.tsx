@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { GamePhase, GameState } from "@/lib/game-types"
@@ -103,14 +103,11 @@ export default function GamePhases({ roomId, gameState: initialGameState, curren
           <Card className="max-w-2xl mx-auto">
             <CardContent className="text-center py-8">
               <h2 className="text-xl font-semibold mb-4">Round Complete</h2>
-              <p className="text-gray-600 mb-4">Calculating scores...</p>
-              <Button
-                onClick={() => {
-                  console.log('Process round scoring')
-                }}
-              >
-                Continue to Next Round
-              </Button>
+              <p className="text-gray-600 mb-4">Scores calculated automatically. Starting next round...</p>
+              <div className="text-sm text-gray-500 mt-4">
+                <p>Round scoring is processed automatically when all cards are played.</p>
+                <p>The next betting round will begin shortly.</p>
+              </div>
             </CardContent>
           </Card>
         )}
