@@ -40,21 +40,28 @@ export function useGameState({ roomId, initialGameState, onGameEvent }: UseGameS
         eventSource.onmessage = (event) => {
           try {
             const gameEvent: GameEvent = JSON.parse(event.data)
-            
+
             // Handle different event types
             switch (gameEvent.type) {
+              case 'connected':
+                console.log('SSE connected to room:', roomId)
+                break
               case 'game_state':
+                console.log('Received initial game state')
                 setGameState(gameEvent.data)
                 break
-              case 'game_state_updated':
-                // Refresh game state
-                refreshGameState()
+              case 'game_event':
+                console.log('Received game event:', gameEvent.data)
+                // Handle specific game events
+                if (gameEvent.data?.type === 'game_state_updated') {
+                  refreshGameState()
+                }
                 break
               case 'heartbeat':
-                // Keep connection alive
+                // Keep connection alive - no action needed
                 break
               default:
-                console.log('Unknown game event:', gameEvent)
+                console.log('Unknown SSE event:', gameEvent)
             }
 
             // Call custom event handler
@@ -62,19 +69,22 @@ export function useGameState({ roomId, initialGameState, onGameEvent }: UseGameS
               onGameEvent(gameEvent)
             }
           } catch (error) {
-            console.error('Error parsing game event:', error)
+            console.error('Error parsing SSE event:', error)
           }
         }
 
         eventSource.onerror = (error) => {
-          console.error('Game events error:', error)
+          console.error('SSE connection error:', error)
           setIsConnected(false)
           setError('Connection lost')
-          
-          // Attempt to reconnect after 5 seconds
-          if (eventSource?.readyState === EventSource.CLOSED) {
+
+          // Only attempt to reconnect if the connection was actually closed
+          // and we're not already trying to reconnect
+          if (eventSource?.readyState === EventSource.CLOSED && !reconnectTimeout) {
+            console.log('SSE connection closed, will reconnect in 5 seconds...')
             reconnectTimeout = setTimeout(() => {
-              console.log('Attempting to reconnect...')
+              console.log('Attempting SSE reconnect...')
+              reconnectTimeout = null
               connect()
             }, 5000)
           }
