@@ -593,6 +593,57 @@ export async function updateGamePlayersAction(roomId: string): Promise<{ success
   }
 }
 
+// Force auto-start for existing 4-player rooms stuck in team selection
+export async function forceAutoStartAction(roomId: string): Promise<{ success: boolean; error?: string; gameState?: GameState }> {
+  try {
+    const gameState = await getRoomGameState(roomId)
+    if (!gameState) {
+      return { success: false, error: "No game state found" }
+    }
+
+    const playerCount = Object.keys(gameState.players).length
+    if (playerCount !== 4) {
+      return { success: false, error: `Need exactly 4 players, found ${playerCount}` }
+    }
+
+    if (gameState.phase !== GamePhase.TEAM_SELECTION) {
+      return { success: false, error: "Game already started" }
+    }
+
+    console.log(`🎮 Force auto-starting game with 4 players in room ${roomId}`)
+
+    // Auto-assign teams and seats (A1, B2, A3, B4 pattern)
+    const playerIds = Object.keys(gameState.players)
+    playerIds.forEach((playerId, index) => {
+      gameState.players[playerId].team = index % 2 === 0 ? Team.A : Team.B
+      gameState.players[playerId].seatPosition = index
+    })
+
+    // Move to betting phase
+    gameState.phase = GamePhase.BETS
+    gameState.currentTurn = playerIds[0] // First player starts betting
+
+    await saveRoomGameState(roomId, gameState)
+
+    await broadcastGameEvent({
+      type: 'game_state_updated',
+      roomId,
+      data: {
+        phase: gameState.phase,
+        players: playerCount,
+        forceStarted: true
+      },
+      timestamp: new Date()
+    })
+
+    console.log(`✅ Game force-started: Teams assigned, moved to betting phase`)
+    return { success: true, gameState }
+  } catch (error) {
+    console.error("Failed to force auto-start:", error)
+    return { success: false, error: "Failed to force auto-start" }
+  }
+}
+
 // Get game events (for real-time updates)
 export async function getGameEvents(roomId: string, since?: Date): Promise<GameEvent[]> {
   // This would fetch events from database in a real implementation

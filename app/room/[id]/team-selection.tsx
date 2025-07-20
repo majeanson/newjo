@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Users, Crown } from "lucide-react"
 import { GameState, Team } from "@/lib/game-types"
-import { selectTeamAction } from "../../actions/game-actions"
+import { selectTeamAction, forceAutoStartAction } from "../../actions/game-actions"
 
 interface TeamSelectionProps {
   roomId: string
@@ -26,13 +26,13 @@ export default function TeamSelection({ roomId, gameState, currentUserId, onGame
 
   const handleTeamSelect = async (team: Team) => {
     if (isSelecting) return
-    
+
     setIsSelecting(true)
     setError(null)
 
     try {
       const result = await selectTeamAction(roomId, team, currentUserId)
-      
+
       if (result.success && result.gameState) {
         onGameStateUpdate(result.gameState)
       } else {
@@ -41,6 +41,28 @@ export default function TeamSelection({ roomId, gameState, currentUserId, onGame
     } catch (error) {
       console.error("Team selection error:", error)
       setError("Failed to select team")
+    } finally {
+      setIsSelecting(false)
+    }
+  }
+
+  const handleForceStart = async () => {
+    if (isSelecting) return
+
+    setIsSelecting(true)
+    setError(null)
+
+    try {
+      const result = await forceAutoStartAction(roomId)
+
+      if (result.success && result.gameState) {
+        onGameStateUpdate(result.gameState)
+      } else {
+        setError(result.error || "Failed to start game")
+      }
+    } catch (error) {
+      console.error("Force start error:", error)
+      setError("Failed to start game")
     } finally {
       setIsSelecting(false)
     }
@@ -67,10 +89,22 @@ export default function TeamSelection({ roomId, gameState, currentUserId, onGame
         )}
 
         {Object.keys(gameState.players).length === 4 && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-            <p className="text-sm text-green-700 text-center font-semibold">
-              ✅ 4 players online! Teams will be auto-assigned and game will start automatically.
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <p className="text-sm text-green-700 text-center font-semibold mb-3">
+              ✅ 4 players online! Ready to start the game.
             </p>
+            <div className="text-center">
+              <Button
+                onClick={handleForceStart}
+                disabled={isSelecting}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {isSelecting ? "Starting Game..." : "🎮 Start Game Now"}
+              </Button>
+              <p className="text-xs text-green-600 mt-2">
+                Teams will be auto-assigned (A1, B2, A3, B4) and game will begin!
+              </p>
+            </div>
           </div>
         )}
 
