@@ -14,34 +14,6 @@ export function useGameEvents(roomId: string) {
   const eventSourceRef = useRef<EventSource | null>(null)
 
   useEffect(() => {
-    if (!roomId) return
-
-    // In preview mode, simulate connection and some events
-    setIsConnected(true)
-
-    // Simulate some events for demo purposes
-    const simulateEvents = () => {
-      const demoEvents: GameEvent[] = [
-        {
-          type: "PLAYER_JOINED",
-          roomId,
-          playerName: "Demo Player",
-          playerId: "demo1",
-        },
-        {
-          type: "CARD_DRAWN",
-          roomId,
-          card: "K♥",
-          remainingCards: 45,
-        },
-      ]
-
-      setTimeout(() => {
-        setEvents(demoEvents)
-      }, 2000)
-    }
-
-    simulateEvents()
 
     // Try to connect to real SSE if available
     try {
