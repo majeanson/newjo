@@ -15,11 +15,8 @@ interface RoundResult {
 }
 import {
   selectTeam,
-  selectSeat,
   placeBet,
   areTeamsBalanced,
-  areSeatsSelected,
-  generateTurnOrder,
   getHighestBet,
   areAllBetsPlaced,
   dealCards,
@@ -227,14 +224,23 @@ export async function placeBetAction(
     if (areAllBetsPlaced(newGameState)) {
       const allBets = Object.values(newGameState.bets)
       const highestBet = getHighestBet(allBets)
-      
+
       if (highestBet) {
         newGameState.highestBet = highestBet
         newGameState.currentTurn = highestBet.playerId // Highest better starts
         newGameState.starter = highestBet.playerId
       }
-      
-      newGameState.phase = GamePhase.CARDS
+
+      // Deal cards to all players
+      const gameStateWithCards = dealCards(newGameState)
+
+      // Move to cards phase
+      gameStateWithCards.phase = GamePhase.CARDS
+
+      // Return the game state with cards dealt
+      await saveGameState(roomId, gameStateWithCards)
+      revalidatePath(`/room/${roomId}`)
+      return { success: true, gameState: gameStateWithCards }
     }
 
     await saveGameState(roomId, newGameState)
