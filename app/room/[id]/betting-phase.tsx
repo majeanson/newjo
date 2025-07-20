@@ -18,7 +18,7 @@ interface BettingPhaseProps {
 
 export default function BettingPhase({ roomId, gameState, currentUserId, onGameStateUpdate }: BettingPhaseProps) {
   const [selectedBet, setSelectedBet] = useState<Bets | null>(null)
-  const [isTrump, setIsTrump] = useState(false)
+  const [isTrump, setIsTrump] = useState(true)
   const [isPlacing, setIsPlacing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -232,7 +232,7 @@ export default function BettingPhase({ roomId, gameState, currentUserId, onGameS
                     onCheckedChange={(checked) => setIsTrump(checked as boolean)}
                   />
                   <label htmlFor="trump" className="text-sm">
-                    With Trump (higher priority if tied)
+                    Without Trump (higher priority if tied, double the points won/loss)
                   </label>
                 </div>
               )}
