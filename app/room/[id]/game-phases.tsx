@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { GamePhase, GameState } from "@/lib/game-types"
+import { useGameState } from "@/hooks/use-game-state"
 import TeamSelection from "./team-selection"
 import BettingPhase from "./betting-phase"
 import CardGame from "./card-game"
@@ -16,12 +17,24 @@ interface GamePhasesProps {
 }
 
 export default function GamePhases({ roomId, gameState: initialGameState, currentUserId }: GamePhasesProps) {
-  const [gameState, setGameState] = useState(initialGameState)
+  // Use real-time game state with live updates
+  const { gameState: liveGameState, isConnected } = useGameState({
+    roomId,
+    initialGameState,
+    onGameEvent: (event) => {
+      console.log('Game event received:', event)
+    }
+  })
+
+  // Use live game state if available, fallback to initial
+  const gameState = liveGameState || initialGameState
   const currentPlayer = gameState.players[currentUserId]
   const isMyTurn = gameState.currentTurn === currentUserId
 
   const handleGameStateUpdate = (newGameState: GameState) => {
-    setGameState(newGameState)
+    // The real-time system will handle updates automatically
+    // This is mainly for immediate UI feedback
+    console.log('Game state updated locally:', newGameState)
   }
 
   return (
@@ -47,6 +60,12 @@ export default function GamePhases({ roomId, gameState: initialGameState, curren
               <p className="text-sm text-gray-600">Current Turn</p>
               <Badge variant={isMyTurn ? "default" : "secondary"}>
                 {isMyTurn ? "Your Turn" : gameState.players[gameState.currentTurn]?.name || "Waiting"}
+              </Badge>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Connection</p>
+              <Badge variant={isConnected ? "default" : "destructive"}>
+                {isConnected ? "Live" : "Offline"}
               </Badge>
             </div>
             <div>

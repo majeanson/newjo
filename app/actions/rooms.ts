@@ -79,6 +79,10 @@ export async function joinRoom(prevState: { error?: string } | null,  formData: 
     console.log("✅ Join result:", success)
     
     if (success) {
+      // Update game state with new player
+      const { updateGamePlayersAction } = await import("./game-actions")
+      await updateGamePlayersAction(roomId)
+
       // Emit real-time event
       eventStore.emit({
         type: "PLAYER_JOINED",

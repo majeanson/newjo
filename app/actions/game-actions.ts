@@ -471,6 +471,97 @@ export async function resetGameAction(roomId: string): Promise<{ success: boolea
   }
 }
 
+// Update game state when players join/leave
+export async function updateGamePlayersAction(roomId: string): Promise<{ success: boolean; error?: string; gameState?: GameState }> {
+  try {
+    const room = await getRoomData(roomId)
+    if (!room) {
+      return { success: false, error: "Room not found" }
+    }
+
+    // Get current game state
+    let gameState = await getRoomGameState(roomId)
+
+    // If no game state exists, create one
+    if (!gameState) {
+      const players: Record<string, Player> = {}
+      room.members.forEach(member => {
+        players[member.userId] = {
+          id: member.userId,
+          name: member.user.name || "Unknown",
+          team: undefined,
+          seatPosition: undefined,
+          isReady: false
+        }
+      })
+
+      gameState = {
+        phase: GamePhase.TEAM_SELECTION,
+        round: 1,
+        currentTurn: room.members[0].userId,
+        dealer: room.members[0].userId,
+        starter: room.members[0].userId,
+        trump: undefined,
+        highestBet: undefined,
+        players,
+        bets: {},
+        playedCards: {},
+        playerHands: {},
+        wonTricks: {},
+        scores: {},
+        turnOrder: room.members.map(m => m.userId)
+      }
+    } else {
+      // Update existing game state with new players
+      const existingPlayerIds = Object.keys(gameState.players)
+      const currentMemberIds = room.members.map(m => m.userId)
+
+      // Add new players
+      room.members.forEach(member => {
+        if (!gameState!.players[member.userId]) {
+          gameState!.players[member.userId] = {
+            id: member.userId,
+            name: member.user.name || "Unknown",
+            team: undefined,
+            seatPosition: undefined,
+            isReady: false
+          }
+        }
+      })
+
+      // Remove players who left (only if game hasn't started)
+      if (gameState.phase === GamePhase.TEAM_SELECTION) {
+        existingPlayerIds.forEach(playerId => {
+          if (!currentMemberIds.includes(playerId)) {
+            delete gameState!.players[playerId]
+            delete gameState!.bets[playerId]
+          }
+        })
+
+        // Update turn order
+        gameState.turnOrder = room.members.map(m => m.userId)
+        if (!currentMemberIds.includes(gameState.currentTurn)) {
+          gameState.currentTurn = room.members[0]?.userId || ""
+        }
+      }
+    }
+
+    await saveRoomGameState(roomId, gameState)
+
+    await broadcastGameEvent({
+      type: 'game_state_updated',
+      roomId,
+      data: { phase: gameState.phase, players: Object.keys(gameState.players).length },
+      timestamp: new Date()
+    })
+
+    return { success: true, gameState }
+  } catch (error) {
+    console.error("Failed to update game players:", error)
+    return { success: false, error: "Failed to update game players" }
+  }
+}
+
 // Get game events (for real-time updates)
 export async function getGameEvents(roomId: string, since?: Date): Promise<GameEvent[]> {
   // This would fetch events from database in a real implementation
