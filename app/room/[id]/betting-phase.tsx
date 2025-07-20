@@ -228,7 +228,7 @@ export default function BettingPhase({ roomId, gameState, currentUserId, onGameS
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="trump"
-                    checked={isTrump}
+                    checked={!isTrump}
                     onCheckedChange={(checked) => setIsTrump(checked as boolean)}
                   />
                   <label htmlFor="trump" className="text-sm">
