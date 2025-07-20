@@ -164,9 +164,18 @@ export async function selectPlayerTeam(
 
     const newGameState = selectTeam(gameState, user.id, team)
     
-    // Check if we can move to seat selection
+    // Check if we can move to betting (auto-assign seats)
     if (areTeamsBalanced(newGameState)) {
-      newGameState.phase = GamePhase.SEAT_SELECTION
+      // Auto-assign seats in A1, B2, A3, B4 pattern
+      const teamAPlayers = Object.values(newGameState.players).filter(p => p.team === Team.A)
+      const teamBPlayers = Object.values(newGameState.players).filter(p => p.team === Team.B)
+
+      teamAPlayers[0].seatPosition = 0  // A1
+      teamBPlayers[0].seatPosition = 1  // B2
+      teamAPlayers[1].seatPosition = 2  // A3
+      teamBPlayers[1].seatPosition = 3  // B4
+
+      newGameState.phase = GamePhase.BETS
     }
 
     await saveGameState(roomId, newGameState)
@@ -179,55 +188,7 @@ export async function selectPlayerTeam(
   }
 }
 
-// Seat selection action
-export async function selectPlayerSeat(
-  roomId: string, 
-  seatPosition: number
-): Promise<{ success: boolean; error?: string; gameState?: GameState }> {
-  try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return { success: false, error: "Not authenticated" }
-    }
-
-    const gameState = await getGameState(roomId)
-    if (!gameState) {
-      return { success: false, error: "Game not found" }
-    }
-
-    if (gameState.phase !== GamePhase.SEAT_SELECTION) {
-      return { success: false, error: "Not in seat selection phase" }
-    }
-
-    const newGameState = selectSeat(gameState, user.id, seatPosition)
-    
-    // Check if we can move to betting phase
-    if (areSeatsSelected(newGameState)) {
-      newGameState.phase = GamePhase.BETS
-      newGameState.turnOrder = generateTurnOrder(newGameState)
-      
-      // Set random dealer and starter
-      const randomIndex = Math.floor(Math.random() * newGameState.turnOrder.length)
-      newGameState.dealer = newGameState.turnOrder[randomIndex]
-      newGameState.starter = newGameState.turnOrder[(randomIndex + 1) % newGameState.turnOrder.length]
-      newGameState.currentTurn = newGameState.starter
-      
-      // Deal cards
-      const gameStateWithCards = dealCards(newGameState)
-      await saveGameState(roomId, gameStateWithCards)
-      revalidatePath(`/room/${roomId}`)
-      return { success: true, gameState: gameStateWithCards }
-    }
-
-    await saveGameState(roomId, newGameState)
-    revalidatePath(`/room/${roomId}`)
-
-    return { success: true, gameState: newGameState }
-  } catch (error) {
-    console.error("Failed to select seat:", error)
-    return { success: false, error: "Failed to select seat" }
-  }
-}
+// Note: Seat selection is now automatic when teams are complete
 
 // Betting action
 export async function placeBetAction(
@@ -237,9 +198,6 @@ export async function placeBetAction(
 ): Promise<{ success: boolean; error?: string; gameState?: GameState }> {
   try {
     const user = await getCurrentUser()
-    if (!user) {
-      return { success: false, error: "Not authenticated" }
-    }
 
     const gameState = await getGameState(roomId)
     if (!gameState) {

@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { GamePhase, GameState } from "@/lib/game-types"
 import TeamSelection from "./team-selection"
-import SeatSelection from "./seat-selection"
 import BettingPhase from "./betting-phase"
 import CardGame from "./card-game"
 
@@ -80,14 +79,7 @@ export default function GamePhases({ roomId, gameState: initialGameState, curren
           />
         )}
 
-        {gameState.phase === GamePhase.SEAT_SELECTION && (
-          <SeatSelection
-            roomId={roomId}
-            gameState={gameState}
-            currentUserId={currentUserId}
-            onGameStateUpdate={handleGameStateUpdate}
-          />
-        )}
+
 
         {gameState.phase === GamePhase.BETS && (
           <BettingPhase

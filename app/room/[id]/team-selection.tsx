@@ -183,7 +183,7 @@ export default function TeamSelection({ roomId, gameState, currentUserId, onGame
           
           {teamAPlayers.length === 2 && teamBPlayers.length === 2 && (
             <p className="text-green-600 font-semibold">
-              ✓ Teams are ready! Moving to seat selection...
+              ✓ Teams are ready! Seats assigned automatically (A1, B2, A3, B4). Moving to betting...
             </p>
           )}
         </div>

@@ -320,14 +320,7 @@ export default function GameSimulator() {
                   />
                 )}
 
-                {gameState.phase === GamePhase.SEAT_SELECTION && (
-                  <div className="text-center p-4 bg-gray-50 rounded">
-                    <p className="text-gray-600">Seat selection is automatic!</p>
-                    <p className="text-sm text-gray-500 mt-2">
-                      Seats are assigned in A1, B2, A3, B4 pattern when teams are complete.
-                    </p>
-                  </div>
-                )}
+
 
                 {gameState.phase === GamePhase.BETS && (
                   <BettingPhase

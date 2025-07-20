@@ -3,7 +3,6 @@
 export enum GamePhase {
   WAITING = 'waiting',
   TEAM_SELECTION = 'team_selection',
-  SEAT_SELECTION = 'seat_selection', 
   BETS = 'bets',
   CARDS = 'cards',
   TRICK_SCORING = 'trick_scoring',

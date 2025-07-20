@@ -72,12 +72,7 @@ export default function GameTester({ roomId, currentUserId, onGameStateUpdate }:
       case GamePhase.TEAM_SELECTION:
         return baseState
 
-      case GamePhase.SEAT_SELECTION:
-        baseState.players[currentUserId].team = Team.A
-        baseState.players["player2"].team = Team.B
-        baseState.players["player3"].team = Team.A
-        baseState.players["player4"].team = Team.B
-        return baseState
+
 
       case GamePhase.BETS:
         baseState.players[currentUserId].team = Team.A
@@ -151,11 +146,7 @@ export default function GameTester({ roomId, currentUserId, onGameStateUpdate }:
       phase: GamePhase.TEAM_SELECTION,
       description: "Test team selection interface"
     },
-    {
-      label: "Seat Selection", 
-      phase: GamePhase.SEAT_SELECTION,
-      description: "Test seat selection with teams assigned"
-    },
+
     {
       label: "Betting Phase",
       phase: GamePhase.BETS,
@@ -193,7 +184,7 @@ export default function GameTester({ roomId, currentUserId, onGameStateUpdate }:
             <SelectContent>
               <SelectItem value={GamePhase.WAITING}>Waiting for Players</SelectItem>
               <SelectItem value={GamePhase.TEAM_SELECTION}>Team Selection</SelectItem>
-              <SelectItem value={GamePhase.SEAT_SELECTION}>Seat Selection</SelectItem>
+
               <SelectItem value={GamePhase.BETS}>Betting Phase</SelectItem>
               <SelectItem value={GamePhase.CARDS}>Card Playing</SelectItem>
               <SelectItem value={GamePhase.TRICK_SCORING}>Round Scoring</SelectItem>
