@@ -207,24 +207,51 @@ export function dealCards(gameState: GameState): GameState {
 
 // Card playing logic
 export function canPlayCard(gameState: GameState, playerId: string, card: Card): boolean {
-  if (gameState.phase !== GamePhase.CARDS) return false
-  if (gameState.currentTurn !== playerId) return false
+  console.log(`🃏 canPlayCard - Player: ${playerId}, Card: ${card.color}-${card.value} (${card.id})`)
+
+  if (gameState.phase !== GamePhase.CARDS) {
+    console.log(`❌ Not in CARDS phase (current: ${gameState.phase})`)
+    return false
+  }
+
+  if (gameState.currentTurn !== playerId) {
+    console.log(`❌ Not player's turn (current: ${gameState.currentTurn})`)
+    return false
+  }
 
   const playerHand = gameState.playerHands[playerId] || []
+  console.log(`🎯 Player hand: ${playerHand.map(c => `${c.color}-${c.value}`).join(', ')}`)
+
   const hasCard = playerHand.some(c => c.id === card.id)
-  if (!hasCard) return false
+  if (!hasCard) {
+    console.log(`❌ Card not in player's hand`)
+    return false
+  }
 
   const playedCards = Object.values(gameState.playedCards)
   const firstCard = playedCards[0]
+  console.log(`🎴 Played cards this trick: ${playedCards.map(c => `${c.color}-${c.value}`).join(', ')}`)
 
   // If this is the first card of the trick, any card can be played
-  if (!firstCard) return true
+  if (!firstCard) {
+    console.log(`✅ First card of trick - any card allowed`)
+    return true
+  }
 
   // Must follow suit if possible
   const firstColor = firstCard.color
-  const hasColorInHand = playerHand.some(c => c.color === firstColor)
+  console.log(`🎨 First card color (must follow): ${firstColor}`)
 
-  return card.color === firstColor || !hasColorInHand
+  const cardsOfFirstColor = playerHand.filter(c => c.color === firstColor)
+  const hasColorInHand = cardsOfFirstColor.length > 0
+  console.log(`🎯 Cards of ${firstColor} in hand: ${cardsOfFirstColor.map(c => `${c.color}-${c.value}`).join(', ')}`)
+  console.log(`🔍 Has ${firstColor} in hand: ${hasColorInHand}`)
+  console.log(`🎴 Trying to play: ${card.color}-${card.value}`)
+
+  const canPlay = card.color === firstColor || !hasColorInHand
+  console.log(`✅ Can play card: ${canPlay} (same color: ${card.color === firstColor}, no color in hand: ${!hasColorInHand})`)
+
+  return canPlay
 }
 
 export function playCard(gameState: GameState, playerId: string, card: Card): GameState {

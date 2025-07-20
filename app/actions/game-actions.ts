@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { getCurrentUser } from "./auth"
 import { prisma } from "@/lib/prisma"
 import { GameState, GamePhase, Card, Team, Player, Bet } from "@/lib/game-types"
+import { getRoomData } from "./game"
 
 // Type for game events
 export interface GameEvent {
