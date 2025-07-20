@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { GameState } from "@/lib/game-types"
 
 interface GameEvent {
@@ -19,6 +19,10 @@ export function useGameState({ roomId, initialGameState, onGameEvent }: UseGameS
   const [gameState, setGameState] = useState<GameState | null>(initialGameState || null)
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Use ref to avoid recreating SSE connection when onGameEvent changes
+  const onGameEventRef = useRef(onGameEvent)
+  onGameEventRef.current = onGameEvent
 
   // Refresh game state manually
   const refreshGameState = useCallback(async () => {
@@ -91,8 +95,8 @@ export function useGameState({ roomId, initialGameState, onGameEvent }: UseGameS
             }
 
             // Call custom event handler if provided
-            if (onGameEvent) {
-              onGameEvent(data)
+            if (onGameEventRef.current) {
+              onGameEventRef.current(data)
             }
           } catch (error) {
             console.error('Error parsing SSE event:', error)
@@ -138,7 +142,7 @@ export function useGameState({ roomId, initialGameState, onGameEvent }: UseGameS
         clearTimeout(reconnectTimeout)
       }
     }
-  }, [roomId, refreshGameState, onGameEvent])
+  }, [roomId]) // Only depend on roomId to prevent reconnections
 
   // Send game event
   const sendGameEvent = useCallback(async (eventType: string, data?: any) => {
