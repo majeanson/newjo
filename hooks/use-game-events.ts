@@ -1,62 +1,107 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useState, useEffect } from "react"
 
-export type GameEvent =
-  | { type: "CARD_DRAWN"; roomId: string; card: string; remainingCards: number }
-  | { type: "CARD_PLAYED"; roomId: string; card: string; playerName: string; playerId: string }
-  | { type: "PLAYER_JOINED"; roomId: string; playerName: string; playerId: string }
-  | { type: "PLAYER_LEFT"; roomId: string; playerName: string; playerId: string }
+interface GameEvent {
+  type: string
+  card?: string
+  playerName?: string
+  playerId?: string
+  remainingCards?: number
+  timestamp?: Date
+  data?: any
+}
 
 export function useGameEvents(roomId: string) {
   const [events, setEvents] = useState<GameEvent[]>([])
   const [isConnected, setIsConnected] = useState(false)
-  const eventSourceRef = useRef<EventSource | null>(null)
 
   useEffect(() => {
+    if (!roomId) return
 
-    // Try to connect to real SSE if available
-    try {
-      const eventSource = new EventSource(`/api/events/${roomId}`)
-      eventSourceRef.current = eventSource
+    let eventSource: EventSource | null = null
 
-      eventSource.onopen = () => {
-        setIsConnected(true)
-      }
+    const connect = () => {
+      try {
+        console.log('🔌 Connecting to SSE for room events:', roomId)
+        eventSource = new EventSource(`/api/game-events/${roomId}`)
 
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          if (data.type === "HEARTBEAT" || data.type === "CONNECTED") {
-            return
-          }
-          setEvents((prev) => [...prev, data])
-        } catch (error) {
-          console.error("Error parsing SSE data:", error)
+        eventSource.onopen = () => {
+          console.log('✅ SSE connected successfully for events')
+          setIsConnected(true)
         }
-      }
 
-      eventSource.onerror = () => {
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+
+            // Handle different event types
+            if (data.type === "CONNECTED") {
+              console.log('SSE connected to room events:', roomId)
+              return
+            }
+
+            if (data.type === "HEARTBEAT") {
+              // Keep connection alive
+              return
+            }
+
+            // Add the event to our events list
+            const gameEvent: GameEvent = {
+              type: data.type,
+              card: data.card,
+              playerName: data.playerName,
+              playerId: data.playerId,
+              remainingCards: data.remainingCards,
+              timestamp: new Date(),
+              data: data
+            }
+
+            setEvents(prev => [...prev, gameEvent])
+
+            console.log('Game event received:', data.type, data)
+          } catch (error) {
+            console.error('Error parsing SSE event:', error)
+          }
+        }
+
+        eventSource.onerror = (error) => {
+          console.error('❌ SSE connection error:', error)
+          setIsConnected(false)
+
+          // Close the connection
+          if (eventSource) {
+            eventSource.close()
+          }
+
+          // Attempt reconnect after delay (only in production)
+          if (process.env.NODE_ENV === 'production') {
+            setTimeout(() => {
+              console.log('🔄 Attempting SSE reconnect...')
+              connect()
+            }, 3000)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to create SSE connection:', error)
         setIsConnected(false)
       }
-    } catch (error) {
-      // SSE not available in preview, use mock connection
-      console.log("SSE not available, using mock events")
     }
 
+    // Initial connection
+    connect()
+
+    // Cleanup on unmount
     return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close()
+      if (eventSource) {
+        console.log('🔌 Closing SSE connection for events')
+        eventSource.close()
       }
-      setIsConnected(false)
     }
   }, [roomId])
 
-  const clearEvents = () => setEvents([])
-
   return {
     events,
-    isConnected,
-    clearEvents,
+    isConnected
   }
 }

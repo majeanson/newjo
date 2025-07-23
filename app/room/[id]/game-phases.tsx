@@ -1,11 +1,10 @@
 "use client"
 
-
-
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { GamePhase, GameState } from "@/lib/game-types"
-import { useGameState } from "@/hooks/use-game-state"
+
 import { Button } from "@/components/ui/button"
 import { Play, Users } from "lucide-react"
 import TeamSelection from "./team-selection"
@@ -20,24 +19,40 @@ interface GamePhasesProps {
 }
 
 export default function GamePhases({ roomId, gameState: initialGameState, currentUserId }: GamePhasesProps) {
-  // Use real-time game state with live updates
-  const { gameState: liveGameState, isConnected } = useGameState({
-    roomId,
-    initialGameState,
-    onGameEvent: (event) => {
-      console.log('Game event received:', event)
-    }
-  })
+  // Local state for immediate UI updates
+  const [localGameState, setLocalGameState] = useState<GameState | null>(null)
 
-  // Use live game state if available, fallback to initial
-  const gameState = liveGameState || initialGameState
+  // Use local state for immediate updates, then fallback to prop
+  const gameState = localGameState || initialGameState
   const currentPlayer = gameState.players[currentUserId]
+
+  // Track gameState changes in game-phases
+  useEffect(() => {
+    console.log('🎮 Game Phases - gameState changed:', {
+      phase: gameState?.phase,
+      currentTurn: gameState?.currentTurn,
+      betsCount: Object.keys(gameState?.bets || {}).length,
+      usingLocalState: !!localGameState,
+      usingPropState: !localGameState,
+      timestamp: Date.now()
+    })
+  }, [gameState, localGameState])
   const isMyTurn = gameState.currentTurn === currentUserId
 
   const handleGameStateUpdate = (newGameState: GameState) => {
-    // The real-time system will handle updates automatically
-    // This is mainly for immediate UI feedback
-    console.log('Game state updated locally:', newGameState)
+    // Update local state immediately for instant UI feedback
+    console.log('🎮 Game state updated locally in game-phases:', {
+      phase: newGameState.phase,
+      currentTurn: newGameState.currentTurn,
+      betsCount: Object.keys(newGameState.bets || {}).length
+    })
+    setLocalGameState(newGameState)
+
+    // Clear local state after 3 seconds as fallback (SSE should update before then)
+    setTimeout(() => {
+      console.log('🕐 Clearing local game state after 3 seconds')
+      setLocalGameState(null)
+    }, 3000)
   }
 
   // Handle start game for waiting phase
@@ -78,9 +93,9 @@ export default function GamePhases({ roomId, gameState: initialGameState, curren
               </Badge>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Connection</p>
-              <Badge variant={isConnected ? "default" : "destructive"}>
-                {isConnected ? "Live" : "Offline"}
+              <p className="text-sm text-gray-600">State Source</p>
+              <Badge variant={localGameState ? "secondary" : "default"}>
+                {localGameState ? "Local" : "Live"}
               </Badge>
             </div>
             <div>
@@ -151,7 +166,9 @@ export default function GamePhases({ roomId, gameState: initialGameState, curren
           </Card>
         )}
 
-        {gameState.phase === GamePhase.TEAM_SELECTION && (
+
+
+        {((gameState.phase as string) === GamePhase.TEAM_SELECTION || (gameState.phase as string) === 'team_selection' || (gameState.phase as string) === 'TEAM_SELECTION') && (
           <TeamSelection
             roomId={roomId}
             gameState={gameState}
@@ -164,6 +181,7 @@ export default function GamePhases({ roomId, gameState: initialGameState, curren
 
         {gameState.phase === GamePhase.BETS && (
           <BettingPhase
+            key={`betting-${gameState.currentTurn}-${Object.keys(gameState.bets || {}).length}`}
             roomId={roomId}
             gameState={gameState}
             currentUserId={currentUserId}

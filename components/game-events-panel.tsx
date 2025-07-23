@@ -7,8 +7,16 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
 import { clearOldGameEvents } from "@/app/actions/game-actions"
-import { GameEvent } from "@/app/actions/game-actions"
-import { Clock, Trash2, Activity, Users, Cards, Trophy } from "lucide-react"
+
+// Use a flexible event interface for the UI
+interface GameEvent {
+  type: string
+  roomId: string
+  userId?: string
+  data?: any
+  timestamp: Date
+}
+import { Clock, Trash2, Activity, Users, Trophy, AlarmClockCheck, RotateCcw } from "lucide-react"
 // Simple time formatting function (replace with date-fns if available)
 const formatDistanceToNow = (date: Date, options?: { addSuffix?: boolean }) => {
   const now = new Date()
@@ -26,19 +34,29 @@ const formatDistanceToNow = (date: Date, options?: { addSuffix?: boolean }) => {
 interface GameEventsPanelProps {
   roomId: string
   className?: string
+  events?: GameEvent[] // Optional events prop to avoid duplicate SSE connections
 }
 
-export default function GameEventsPanel({ roomId, className = "" }: GameEventsPanelProps) {
-  const [events, setEvents] = useState<GameEvent[]>([])
+export default function GameEventsPanel({ roomId, className = "", events: externalEvents }: GameEventsPanelProps) {
+  const [localEvents, setLocalEvents] = useState<GameEvent[]>([])
   const [isClearing, setIsClearing] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Listen to SSE events for real-time updates only
+  // Use external events if provided, otherwise use local events from SSE
+  const events = externalEvents || localEvents
+
+  // Only create SSE connection if no external events are provided
   useEffect(() => {
+    if (externalEvents) {
+      console.log('🎮 GameEventsPanel: Using external events, skipping SSE connection')
+      return // Don't create SSE connection if events are provided externally
+    }
+
     let eventSource: EventSource | null = null
 
     try {
-      eventSource = new EventSource(`/api/events/${roomId}`)
+      console.log('🔌 GameEventsPanel: Creating SSE connection for room:', roomId)
+      eventSource = new EventSource(`/api/game-events/${roomId}`)
 
       eventSource.onmessage = (event) => {
         try {
@@ -56,7 +74,7 @@ export default function GameEventsPanel({ roomId, className = "" }: GameEventsPa
             timestamp: new Date()
           }
 
-          setEvents(prev => [...prev, gameEvent])
+          setLocalEvents(prev => [...prev, gameEvent])
 
           // Auto-scroll to bottom when new events arrive
           setTimeout(() => {
@@ -74,10 +92,11 @@ export default function GameEventsPanel({ roomId, className = "" }: GameEventsPa
 
     return () => {
       if (eventSource) {
+        console.log('🔌 GameEventsPanel: Closing SSE connection')
         eventSource.close()
       }
     }
-  }, [roomId])
+  }, [roomId, externalEvents])
 
 
 
@@ -86,7 +105,10 @@ export default function GameEventsPanel({ roomId, className = "" }: GameEventsPa
     try {
       const result = await clearOldGameEvents(roomId)
       if (result.success) {
-        setEvents([])
+        // Only clear local events if we're managing them
+        if (!externalEvents) {
+          setLocalEvents([])
+        }
       }
     } catch (error) {
       console.error("Failed to clear events:", error)
@@ -97,20 +119,24 @@ export default function GameEventsPanel({ roomId, className = "" }: GameEventsPa
 
   const getEventIcon = (eventType: string) => {
     switch (eventType) {
-      case 'team_selected':
-      case 'player_joined':
-      case 'player_left':
+      case 'TEAM_SELECTED':
+      case 'PLAYER_JOINED':
+      case 'PLAYER_LEFT':
+      case 'PLAYER_READY_CHANGED':
+      case 'TEAM_SELECTED':
         return <Users className="h-4 w-4" />
-      case 'bet_placed':
-      case 'betting_complete':
-      case 'betting_phase_started':
+      case 'BET_PLACED':
+      case 'BETTING_COMPLETE':
+      case 'BETTING_PHASE_STARTED':
         return <Activity className="h-4 w-4" />
-      case 'card_played':
-      case 'trick_complete':
-        return <Cards className="h-4 w-4" />
-      case 'round_complete':
-      case 'round_scoring_complete':
+      case 'CARD_PLAYED':
+      case 'TRICK_COMPLETE':
+        return <AlarmClockCheck className="h-4 w-4" />
+      case 'ROUND_COMPLETE':
+      case 'ROUND_SCORING_COMPLETE':
         return <Trophy className="h-4 w-4" />
+      case 'GAME_RESET':
+        return <RotateCcw className="h-4 w-4" />
       default:
         return <Clock className="h-4 w-4" />
     }
@@ -118,20 +144,25 @@ export default function GameEventsPanel({ roomId, className = "" }: GameEventsPa
 
   const getEventColor = (eventType: string) => {
     switch (eventType) {
-      case 'team_selected':
-      case 'player_joined':
+      case 'TEAM_SELECTED':
+      case 'PLAYER_JOINED':
+      case 'BETTING_PHASE_STARTED':
         return "bg-blue-50 border-blue-200"
-      case 'bet_placed':
-      case 'betting_complete':
+      case 'BET_PLACED':
+      case 'BETTING_COMPLETE':
         return "bg-green-50 border-green-200"
-      case 'card_played':
-      case 'trick_complete':
+      case 'CARD_PLAYED':
+      case 'TRICK_COMPLETE':
         return "bg-purple-50 border-purple-200"
-      case 'round_complete':
-      case 'round_scoring_complete':
+      case 'ROUND_COMPLETE':
+      case 'ROUND_SCORING_COMPLETE':
         return "bg-yellow-50 border-yellow-200"
-      case 'player_left':
+      case 'GAME_RESET':
         return "bg-red-50 border-red-200"
+      case 'PLAYER_LEFT':
+        return "bg-red-50 border-red-200"
+      case 'PLAYER_READY_CHANGED':
+        return "bg-orange-50 border-orange-200"
       default:
         return "bg-gray-50 border-gray-200"
     }
@@ -139,31 +170,44 @@ export default function GameEventsPanel({ roomId, className = "" }: GameEventsPa
 
   const formatEventMessage = (event: GameEvent) => {
     const playerName = event.data?.playerName || "Unknown Player"
-    
+
     switch (event.type) {
-      case 'team_selected':
-        return `${playerName} selected team ${event.data?.team}`
-      case 'betting_phase_started':
+      case 'TEAM_SELECTED':
+        if (event.data?.autoAssigned) {
+          return `🎯 Teams auto-assigned! ${event.data?.seatPattern || 'A1, B2, A3, B4'}`
+        } else if (event.data?.teamsBalanced) {
+          return `✅ ${playerName} joined Team ${event.data?.team} - Teams complete!`
+        } else {
+          return `👥 ${playerName} joined Team ${event.data?.team}`
+        }
+      case 'BETTING_PHASE_STARTED':
         return "Betting phase started - all teams are balanced!"
-      case 'player_ready_changed':
+      case 'PLAYER_READY_CHANGED':
         return `${playerName} is ${event.data?.ready ? 'ready' : 'not ready'}`
-      case 'bet_placed':
-        return `${playerName} placed bet: ${event.data?.betValue}${event.data?.trump ? ' (with trump)' : ''}`
-      case 'betting_complete':
-        return `All bets placed! Highest bet: ${event.data?.highestBet} by ${event.data?.highestBetter}`
-      case 'card_played':
+      case 'BET_PLACED':
+        const betDisplay = event.data?.betValue === 'SKIP' ? 'Skip' : `${event.data?.betValue} tricks`
+        const trumpDisplay = event.data?.trump ? ' (Trump)' : (event.data?.trump === false ? ' (No Trump)' : '')
+        return `🎯 ${playerName} bet: ${betDisplay}${trumpDisplay}`
+      case 'BETTING_COMPLETE':
+        return `🎲 All bets placed! Highest: ${event.data?.highestBet} tricks. Cards phase starting...`
+      case 'CARD_PLAYED':
         return `${playerName} played ${event.data?.card}`
-      case 'trick_complete':
+      case 'TRICK_COMPLETE':
         return `Trick won by ${event.data?.winnerName}`
-      case 'round_complete':
+      case 'ROUND_COMPLETE':
         return `Round ${event.data?.round} completed`
-      case 'round_scoring_complete':
+      case 'ROUND_SCORING_COMPLETE':
         return `Round scoring complete - starting round ${event.data?.newRound}`
-      case 'game_state_updated':
+      case 'GAME_RESET':
+        return `🔄 GAME RESET! ${event.data?.message || 'Game has been reset to initial state.'}`
+      case 'GAME_STATE_UPDATED':
+        if (event.data?.reset) {
+          return `🔄 Game reset! ${event.data?.message || 'Back to initial state.'}`
+        }
         return event.data?.message || "Game state updated"
-      case 'player_joined':
+      case 'PLAYER_JOINED':
         return `${playerName} joined the game`
-      case 'player_left':
+      case 'PLAYER_LEFT':
         return `${playerName} left the game`
       default:
         return `${event.type} event occurred`

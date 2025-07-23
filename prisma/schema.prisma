@@ -27,10 +27,13 @@ model UserSession {
   sessionId String   @unique @map("session_id")
   createdAt DateTime @default(now()) @map("created_at")
   lastSeen  DateTime @default(now()) @map("last_seen")
-  
+
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
+  // Performance indexes
+  @@index([userId])
+  @@index([lastSeen])
   @@map("user_sessions")
 }
 
@@ -42,35 +45,39 @@ model Room {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  // Game State - stored as JSON
-  gamePhase     String?  @default("waiting") @map("game_phase") // waiting, team_selection, seat_selection, bets, cards, trick_scoring, round_end, game_end
+  // Core Game State
+  gamePhase     String?  @default("team_selection") @map("game_phase") // waiting, team_selection, bets, cards, round_end
   currentRound  Int?     @default(1) @map("current_round")
-  currentTrick  Int?     @default(1) @map("current_trick")
   currentTurn   String?  @map("current_turn") // userId of player whose turn it is
   dealerUserId  String?  @map("dealer_user_id") // userId of current dealer
   starterUserId String?  @map("starter_user_id") // userId who starts the round
   trumpColor    String?  @map("trump_color") // red, blue, green, brown
 
-  // Game Data - stored as JSON objects
-  playerHands   Json?    @map("player_hands") // { userId: Card[] }
-  playedCards   Json?    @map("played_cards") // { userId: Card } - current trick
-  playerBets    Json?    @map("player_bets") // { userId: Bet }
-  playerTeams   Json?    @map("player_teams") // { userId: 'A' | 'B' }
-  playerSeats   Json?    @map("player_seats") // { userId: number } - seat positions 0-3
-  playerReady   Json?    @map("player_ready") // { userId: boolean }
-  tricksWon     Json?    @map("tricks_won") // { userId: number } - tricks won this round
-  gameScores    Json?    @map("game_scores") // { userId: number } - total game scores
-  roundHistory  Json?    @map("round_history") // Array of round results
-
-  // Highest bet info
-  highestBetUserId String? @map("highest_bet_user_id")
-  highestBetValue  Int?    @map("highest_bet_value")
+  // Betting State (extracted for performance)
+  highestBetUserId String?  @map("highest_bet_user_id")
+  highestBetValue  Int?     @map("highest_bet_value")
   highestBetTrump  Boolean? @map("highest_bet_trump")
+
+  // Game Data - optimized JSON storage
+  playerHands   Json? @map("player_hands")   // { userId: Card[] }
+  playedCards   Json? @map("played_cards")   // { userId: Card } - current trick
+  playerBets    Json? @map("player_bets")    // { userId: Bet }
+  playerTeams   Json? @map("player_teams")   // { userId: 'A' | 'B' }
+  playerSeats   Json? @map("player_seats")   // { userId: number } - seat positions 0-3
+  playerReady   Json? @map("player_ready")   // { userId: boolean }
+  tricksWon     Json? @map("tricks_won")     // { userId: number } - tricks won this round
+  gameScores    Json? @map("game_scores")    // { userId: number } - total game scores
+  roundHistory  Json? @map("round_history")  // Array of round results + events
 
   // Relations
   host        User         @relation("RoomHost", fields: [hostId], references: [id], onDelete: Cascade)
   members     RoomMember[]
 
+  // Performance indexes
+  @@index([hostId])
+  @@index([isActive])
+  @@index([gamePhase])
+  @@index([updatedAt])
   @@map("rooms")
 }
 
@@ -79,12 +86,16 @@ model RoomMember {
   roomId   String   @map("room_id")
   userId   String   @map("user_id")
   joinedAt DateTime @default(now()) @map("joined_at")
-  
+
   // Relations
   room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
+  // Performance indexes
   @@unique([roomId, userId])
+  @@index([roomId])
+  @@index([userId])
+  @@index([joinedAt])
   @@map("room_members")
 }
 

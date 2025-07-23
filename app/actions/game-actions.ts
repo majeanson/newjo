@@ -4,25 +4,13 @@ import { revalidatePath } from "next/cache"
 import { getCurrentUser } from "./auth"
 import { prisma } from "@/lib/prisma"
 import { GameState, GamePhase, Card, Team, Player, Bet, Bets, CardColor } from "@/lib/game-types"
-import { getRoomData } from "./game"
 
-// Type for game event data
-export interface GameEventData {
-  phase?: GamePhase
-  round?: number
-  playerName?: string
-  players?: number
-  autoStarted?: boolean
-  forceStarted?: boolean
-  message?: string
-}
-
-// Type for game events
-export interface GameEvent {
-  type: 'game_state_updated' | 'player_joined' | 'player_left' | 'card_played' | 'bet_placed' | 'round_ended'
+// Internal event type for broadcasting (more flexible than the strict GameEvent type)
+interface InternalGameEvent {
+  type: string
   roomId: string
   userId?: string
-  data?: GameEventData
+  data?: any
   timestamp: Date
 }
 
@@ -56,14 +44,14 @@ function safeJsonCast<T>(value: unknown, fallback: T): T {
 }
 
 // Broadcast game event to all players in room
-async function broadcastGameEvent(event: GameEvent): Promise<void> {
+async function broadcastGameEvent(event: InternalGameEvent): Promise<void> {
   // Store event in database for persistence
   await storeGameEvent(event)
 
   // Emit to event store for real-time SSE updates
   const { eventStore } = await import("@/lib/events")
   eventStore.emit({
-    type: event.type as 'game_state_updated',
+    type: event.type as any, // Preserve the actual event type
     roomId: event.roomId,
     ...(event.userId && { playerId: event.userId }),
     ...(event.data && event.data)
@@ -74,6 +62,25 @@ async function broadcastGameEvent(event: GameEvent): Promise<void> {
 
   // Log for debugging
   console.log('Game Event:', event)
+}
+
+// Get room data with members
+export async function getRoomData(roomId: string) {
+  try {
+    const room = await prisma.room.findUnique({
+      where: { id: roomId },
+      include: {
+        members: {
+          include: { user: true }
+        }
+      }
+    })
+
+    return room
+  } catch (error) {
+    console.error("Failed to get room data:", error)
+    return null
+  }
 }
 
 // Get current game state from room
@@ -155,7 +162,7 @@ async function saveRoomGameState(roomId: string, gameState: GameState): Promise<
     const playerSeats: Record<string, number> = {}
     const playerReady: Record<string, boolean> = {}
     
-    Object.values(gameState.players).forEach(player => {
+    Object.values(gameState.players).forEach((player: Player) => {
       if (player.team) playerTeams[player.id] = player.team
       if (player.seatPosition !== undefined) playerSeats[player.id] = player.seatPosition
       playerReady[player.id] = player.isReady
@@ -190,7 +197,7 @@ async function saveRoomGameState(roomId: string, gameState: GameState): Promise<
 
     // Broadcast game state update
     await broadcastGameEvent({
-      type: 'game_state_updated',
+      type: 'GAME_STATE_UPDATED',
       roomId,
       data: { phase: gameState.phase, round: gameState.round },
       timestamp: new Date()
@@ -230,7 +237,7 @@ export async function joinGame(roomId: string): Promise<{ success: boolean; erro
 
       // Broadcast player joined event
       await broadcastGameEvent({
-        type: 'player_joined',
+        type: 'PLAYER_JOINED',
         roomId,
         userId: user.id,
         data: { playerName: user.name },
@@ -278,7 +285,7 @@ export async function selectTeamAction(
     }
 
     // Check team capacity
-    const teamCount = Object.values(gameState.players).filter(p => p.team === team).length
+    const teamCount = Object.values(gameState.players).filter((p: Player) => p.team === team).length
     if (teamCount >= 2) {
       return { success: false, error: "Team is full" }
     }
@@ -287,13 +294,13 @@ export async function selectTeamAction(
     gameState.players[userId].team = team
 
     // Check if teams are balanced (2v2)
-    const teamACount = Object.values(gameState.players).filter(p => p.team === Team.A).length
-    const teamBCount = Object.values(gameState.players).filter(p => p.team === Team.B).length
+    const teamACount = Object.values(gameState.players).filter((p: Player) => p.team === Team.A).length
+    const teamBCount = Object.values(gameState.players).filter((p: Player) => p.team === Team.B).length
 
     if (teamACount === 2 && teamBCount === 2) {
       // Automatically assign seats in A1, B2, A3, B4 pattern
-      const teamAPlayers = Object.values(gameState.players).filter(p => p.team === Team.A)
-      const teamBPlayers = Object.values(gameState.players).filter(p => p.team === Team.B)
+      const teamAPlayers = Object.values(gameState.players).filter((p: Player) => p.team === Team.A)
+      const teamBPlayers = Object.values(gameState.players).filter((p: Player) => p.team === Team.B)
 
       // Assign seats: A1, B2, A3, B4
       teamAPlayers[0].seatPosition = 0  // A1
@@ -320,6 +327,42 @@ export async function selectTeamAction(
     }
 
     await saveRoomGameState(roomId, gameState)
+
+    // Broadcast team selection event to all players
+    await broadcastGameEvent({
+      type: 'TEAM_SELECTED',
+      roomId,
+      data: {
+        playerId: userId,
+        playerName: gameState.players[userId]?.name,
+        team,
+        phase: gameState.phase,
+        teamACount,
+        teamBCount,
+        teamsBalanced: teamACount === 2 && teamBCount === 2,
+        autoMovedToBetting: teamACount === 2 && teamBCount === 2
+      },
+      timestamp: new Date()
+    })
+
+    // If teams are now balanced and moved to betting, broadcast that too
+    if (teamACount === 2 && teamBCount === 2) {
+      await broadcastGameEvent({
+        type: 'BETTING_PHASE_STARTED',
+        roomId,
+        data: {
+          phase: 'bets',
+          turnOrder: gameState.turnOrder,
+          currentTurn: gameState.currentTurn,
+          dealer: gameState.dealer,
+          starter: gameState.starter,
+          teamsComplete: true
+        },
+        timestamp: new Date()
+      })
+    }
+
+    console.log(`✅ Team selection broadcasted: ${gameState.players[userId]?.name} joined Team ${team}`)
     return { success: true, gameState }
   } catch (error) {
     console.error("Failed to select team:", error)
@@ -347,7 +390,7 @@ export async function forceInitializeGame(roomId: string): Promise<{ success: bo
       return { success: false, error: "Need 4 players to start game" }
     }
 
-    // Create initial game state with team selection phase
+    // Create initial game state with appropriate phase based on player count
     const players: Record<string, Player> = {}
     room.members.forEach(member => {
       players[member.userId] = {
@@ -360,7 +403,7 @@ export async function forceInitializeGame(roomId: string): Promise<{ success: bo
     })
 
     const gameState: GameState = {
-      phase: GamePhase.TEAM_SELECTION,
+      phase: room.members.length < 4 ? GamePhase.WAITING : GamePhase.TEAM_SELECTION,
       round: 1,
       currentTurn: room.members[0].userId,
       dealer: room.members[0].userId,
@@ -380,7 +423,7 @@ export async function forceInitializeGame(roomId: string): Promise<{ success: bo
     await prisma.room.update({
       where: { id: roomId },
       data: {
-        gamePhase: GamePhase.TEAM_SELECTION,
+        gamePhase: gameState.phase,
         currentRound: 1,
         currentTrick: 1,
         currentTurn: room.members[0].userId,
@@ -439,7 +482,7 @@ export async function initializeGame(roomId: string): Promise<{ success: boolean
     })
 
     const gameState: GameState = {
-      phase: GamePhase.TEAM_SELECTION,
+      phase: room.members.length < 4 ? GamePhase.WAITING : GamePhase.TEAM_SELECTION,
       round: 1,
       currentTurn: room.members[0].userId, // First player starts
       dealer: room.members[0].userId,
@@ -458,7 +501,7 @@ export async function initializeGame(roomId: string): Promise<{ success: boolean
     await saveRoomGameState(roomId, gameState)
 
     await broadcastGameEvent({
-      type: 'game_state_updated',
+      type: 'GAME_STATE_UPDATED',
       roomId,
       data: { phase: gameState.phase, message: 'Game initialized!' },
       timestamp: new Date()
@@ -474,7 +517,16 @@ export async function initializeGame(roomId: string): Promise<{ success: boolean
 // Reset game action - resets all game data back to initial state
 export async function resetGameAction(roomId: string): Promise<{ success: boolean; error?: string; gameState?: GameState }> {
   try {
-    const room = await getRoomData(roomId)
+    const room = await prisma.room.findUnique({
+      where: { id: roomId },
+      include: {
+        members: {
+          include: {
+            user: true
+          }
+        }
+      }
+    })
     if (!room) {
       return { success: false, error: "Room not found" }
     }
@@ -492,7 +544,7 @@ export async function resetGameAction(roomId: string): Promise<{ success: boolea
     })
 
     const gameState: GameState = {
-      phase: GamePhase.TEAM_SELECTION,
+      phase: room.members.length < 4 ? GamePhase.WAITING : GamePhase.TEAM_SELECTION,
       round: 1,
       currentTurn: room.members[0].userId,
       dealer: room.members[0].userId,
@@ -510,13 +562,36 @@ export async function resetGameAction(roomId: string): Promise<{ success: boolea
 
     await saveRoomGameState(roomId, gameState)
 
+    // Broadcast multiple events for maximum visibility
+
+    // 1. Main reset event
     await broadcastGameEvent({
-      type: 'game_state_updated',
+      type: 'GAME_RESET',
       roomId,
-      data: { phase: gameState.phase, message: 'Game reset to initial state!' },
+      data: {
+        phase: gameState.phase,
+        message: `🔄 Game has been reset! ${room.members.length < 4 ? 'Waiting for more players to join.' : 'Ready for team selection.'}`,
+        playerCount: room.members.length,
+        newPhase: gameState.phase,
+        resetBy: 'host'
+      },
       timestamp: new Date()
     })
 
+    // 2. Game state updated event for UI refresh
+    await broadcastGameEvent({
+      type: 'GAME_STATE_UPDATED',
+      roomId,
+      data: {
+        phase: gameState.phase,
+        message: 'Game state refreshed after reset',
+        reset: true,
+        forceRefresh: true
+      },
+      timestamp: new Date()
+    })
+
+    console.log(`🔄 Game reset broadcasted for room ${roomId} with ${room.members.length} players`)
     return { success: true, gameState }
   } catch (error) {
     console.error("Failed to reset game:", error)
@@ -527,7 +602,16 @@ export async function resetGameAction(roomId: string): Promise<{ success: boolea
 // Update game state when players join/leave
 export async function updateGamePlayersAction(roomId: string): Promise<{ success: boolean; error?: string; gameState?: GameState }> {
   try {
-    const room = await getRoomData(roomId)
+    const room = await prisma.room.findUnique({
+      where: { id: roomId },
+      include: {
+        members: {
+          include: {
+            user: true
+          }
+        }
+      }
+    })
     if (!room) {
       return { success: false, error: "Room not found" }
     }
@@ -549,7 +633,7 @@ export async function updateGamePlayersAction(roomId: string): Promise<{ success
       })
 
       gameState = {
-        phase: GamePhase.TEAM_SELECTION,
+        phase: room.members.length < 4 ? GamePhase.WAITING : GamePhase.TEAM_SELECTION,
         round: 1,
         currentTurn: room.members[0].userId,
         dealer: room.members[0].userId,
@@ -599,29 +683,30 @@ export async function updateGamePlayersAction(roomId: string): Promise<{ success
       }
     }
 
-    // Check if we should auto-start the game with 4 players
+    // Check if we should move from WAITING to TEAM_SELECTION with 4 players
     const playerCount = Object.keys(gameState.players).length
-    if (playerCount === 4 && gameState.phase === GamePhase.TEAM_SELECTION) {
-      console.log(`🎮 Auto-starting game with 4 players in room ${roomId}`)
+    if (playerCount === 4 && gameState.phase === GamePhase.WAITING) {
+      console.log(`🎮 Moving to team selection with 4 players in room ${roomId}`)
+      gameState.phase = GamePhase.TEAM_SELECTION
 
-      // Auto-assign teams and seats (A1, B2, A3, B4 pattern)
-      const playerIds = Object.keys(gameState.players)
-      playerIds.forEach((playerId, index) => {
-        gameState!.players[playerId].team = index % 2 === 0 ? Team.A : Team.B
-        gameState!.players[playerId].seatPosition = index
+      await broadcastGameEvent({
+        type: 'GAME_STATE_UPDATED',
+        roomId,
+        data: {
+          phase: gameState.phase,
+          message: '4 players ready! Time to select teams.',
+          playerCount: 4
+        },
+        timestamp: new Date()
       })
 
-      // Move to betting phase
-      gameState.phase = GamePhase.BETS
-      gameState.currentTurn = playerIds[0] // First player starts betting
-
-      console.log(`✅ Game auto-started: Teams assigned, moved to betting phase`)
+      console.log(`✅ Moved to team selection phase`)
     }
 
     await saveRoomGameState(roomId, gameState)
 
     await broadcastGameEvent({
-      type: 'game_state_updated',
+      type: 'GAME_STATE_UPDATED',
       roomId,
       data: {
         phase: gameState.phase,
@@ -635,6 +720,63 @@ export async function updateGamePlayersAction(roomId: string): Promise<{ success
   } catch (error) {
     console.error("Failed to update game players:", error)
     return { success: false, error: "Failed to update game players" }
+  }
+}
+
+// Auto-assign teams and show assignments (doesn't immediately move to betting)
+export async function autoAssignTeamsAction(roomId: string): Promise<{ success: boolean; error?: string; gameState?: GameState }> {
+  try {
+    const gameState = await getRoomGameState(roomId)
+    if (!gameState) {
+      return { success: false, error: "No game state found" }
+    }
+
+    const playerCount = Object.keys(gameState.players).length
+    if (playerCount !== 4) {
+      return { success: false, error: `Need exactly 4 players, found ${playerCount}` }
+    }
+
+    if (gameState.phase !== GamePhase.TEAM_SELECTION) {
+      return { success: false, error: "Not in team selection phase" }
+    }
+
+    console.log(`🎮 Auto-assigning teams for 4 players in room ${roomId}`)
+
+    // Auto-assign teams and seats (A1, B2, A3, B4 pattern)
+    const playerIds = Object.keys(gameState.players)
+    playerIds.forEach((playerId, index) => {
+      gameState.players[playerId].team = index % 2 === 0 ? Team.A : Team.B
+      gameState.players[playerId].seatPosition = index
+    })
+
+    // Stay in team selection to show assignments, don't move to betting yet
+    await saveRoomGameState(roomId, gameState)
+
+    // Broadcast detailed team assignment event
+    await broadcastGameEvent({
+      type: 'TEAM_SELECTED',
+      roomId,
+      data: {
+        phase: gameState.phase,
+        players: playerCount,
+        autoAssigned: true,
+        teamsBalanced: true,
+        teamAssignments: Object.values(gameState.players).map(player => ({
+          playerId: player.id,
+          playerName: player.name,
+          team: player.team,
+          seatPosition: player.seatPosition
+        })),
+        seatPattern: 'A1, B2, A3, B4'
+      },
+      timestamp: new Date()
+    })
+
+    console.log(`✅ Teams auto-assigned: A1, B2, A3, B4 - showing assignments`)
+    return { success: true, gameState }
+  } catch (error) {
+    console.error("Failed to auto-assign teams:", error)
+    return { success: false, error: "Failed to auto-assign teams" }
   }
 }
 
@@ -670,13 +812,39 @@ export async function forceAutoStartAction(roomId: string): Promise<{ success: b
 
     await saveRoomGameState(roomId, gameState)
 
+    // Broadcast team assignments first
     await broadcastGameEvent({
-      type: 'game_state_updated',
+      type: 'TEAM_SELECTED',
       roomId,
       data: {
         phase: gameState.phase,
         players: playerCount,
+        autoAssigned: true,
+        teamsBalanced: true,
+        teamAssignments: Object.values(gameState.players).map(player => ({
+          playerId: player.id,
+          playerName: player.name,
+          team: player.team,
+          seatPosition: player.seatPosition
+        })),
+        seatPattern: 'A1, B2, A3, B4',
         forceStarted: true
+      },
+      timestamp: new Date()
+    })
+
+    // Then broadcast betting phase start
+    await broadcastGameEvent({
+      type: 'BETTING_PHASE_STARTED',
+      roomId,
+      data: {
+        phase: gameState.phase,
+        players: playerCount,
+        forceStarted: true,
+        turnOrder: gameState.turnOrder,
+        currentTurn: gameState.currentTurn,
+        dealer: gameState.dealer,
+        starter: gameState.starter
       },
       timestamp: new Date()
     })
@@ -690,7 +858,7 @@ export async function forceAutoStartAction(roomId: string): Promise<{ success: b
 }
 
 // Store game event in database for persistence
-async function storeGameEvent(event: GameEvent): Promise<void> {
+async function storeGameEvent(event: InternalGameEvent): Promise<void> {
   try {
     // For now, we'll store events in the room's roundHistory as a simple solution
     // In a production app, you'd want a dedicated events table
@@ -726,7 +894,7 @@ async function storeGameEvent(event: GameEvent): Promise<void> {
 }
 
 // Get game events (for real-time updates) - Server Action
-export async function getGameEvents(roomId: string, since?: Date): Promise<{ success: boolean; events?: GameEvent[]; error?: string }> {
+export async function getGameEvents(roomId: string, since?: Date): Promise<{ success: boolean; events?: InternalGameEvent[]; error?: string }> {
   try {
     const room = await prisma.room.findUnique({
       where: { id: roomId }
@@ -740,7 +908,7 @@ export async function getGameEvents(roomId: string, since?: Date): Promise<{ suc
       id: string
       type: string
       userId?: string
-      data?: GameEventData
+      data?: any
       timestamp: string
     }>>(room.roundHistory, [])
 
@@ -751,9 +919,9 @@ export async function getGameEvents(roomId: string, since?: Date): Promise<{ suc
       return eventTime > sinceTime
     })
 
-    // Convert back to GameEvent format
+    // Convert back to InternalGameEvent format
     const events = filteredEvents.map(event => ({
-      type: event.type as GameEvent['type'],
+      type: event.type,
       roomId,
       userId: event.userId,
       data: event.data,
@@ -768,7 +936,7 @@ export async function getGameEvents(roomId: string, since?: Date): Promise<{ suc
 }
 
 // Get recent game events (last 50 events) - Server Action
-export async function getRecentGameEvents(roomId: string): Promise<{ success: boolean; events?: GameEvent[]; error?: string }> {
+export async function getRecentGameEvents(roomId: string): Promise<{ success: boolean; events?: InternalGameEvent[]; error?: string }> {
   try {
     const room = await prisma.room.findUnique({
       where: { id: roomId }
@@ -782,7 +950,7 @@ export async function getRecentGameEvents(roomId: string): Promise<{ success: bo
       id: string
       type: string
       userId?: string
-      data?: GameEventData
+      data?: any
       timestamp: string
     }>>(room.roundHistory, [])
 
@@ -791,9 +959,9 @@ export async function getRecentGameEvents(roomId: string): Promise<{ success: bo
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
       .slice(0, 50)
 
-    // Convert back to GameEvent format
+    // Convert back to InternalGameEvent format
     const events = recentEvents.map(event => ({
-      type: event.type as GameEvent['type'],
+      type: event.type,
       roomId,
       userId: event.userId,
       data: event.data,
@@ -822,7 +990,7 @@ export async function clearOldGameEvents(roomId: string): Promise<{ success: boo
       id: string
       type: string
       userId?: string
-      data?: GameEventData
+      data?: any
       timestamp: string
     }>>(room.roundHistory, [])
 

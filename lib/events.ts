@@ -1,20 +1,114 @@
-// Event types for the game
+import { GamePhase, Team, Bets } from "./game-types"
+
+// Unified event data interfaces for type safety
+export interface BaseEventData {
+  playerName?: string
+  playerId?: string
+}
+
+export interface TeamEventData extends BaseEventData {
+  team?: Team
+  teamsBalanced?: boolean
+  phase?: GamePhase
+}
+
+export interface BettingEventData extends BaseEventData {
+  betValue?: Bets
+  trump?: boolean
+  betsRemaining?: number
+  highestBet?: number
+  highestBetter?: string
+  allBetsComplete?: boolean
+  turnOrder?: string[]
+  currentTurn?: string
+}
+
+export interface CardEventData extends BaseEventData {
+  card?: string
+  cardsInTrick?: number
+  winner?: string
+  winnerName?: string
+}
+
+export interface RoundEventData extends BaseEventData {
+  round?: number
+  newRound?: number
+  scores?: Record<string, number>
+  roundResult?: any
+}
+
+export interface GameStateEventData extends BaseEventData {
+  phase?: GamePhase
+  players?: number
+  autoStarted?: boolean
+  forceStarted?: boolean
+  message?: string
+}
+
+// Unified Game Event type with proper typing
 export type GameEvent =
-  | { type: "CARD_DRAWN"; roomId: string; card: string; remainingCards: number }
-  | { type: "CARD_PLAYED"; roomId: string; card: string; playerName: string; playerId: string }
-  | { type: "PLAYER_JOINED"; roomId: string; playerName: string; playerId: string }
-  | { type: "PLAYER_LEFT"; roomId: string; playerName: string; playerId: string }
+  // System Events
+  | { type: "CONNECTED"; roomId: string }
+  | { type: "HEARTBEAT"; roomId: string }
   | { type: "ROOM_UPDATED"; roomId: string }
-  | { type: "team_selected"; roomId: string; playerId?: string; team?: string; playerName?: string; teamsBalanced?: boolean; phase?: string }
-  | { type: "betting_phase_started"; roomId: string; playerId?: string; phase?: string; turnOrder?: string[]; currentTurn?: string }
-  | { type: "player_ready_changed"; roomId: string; playerId?: string; ready?: boolean; playerName?: string; allReady?: boolean }
-  | { type: "bet_placed"; roomId: string; playerId?: string; betValue?: string; trump?: boolean; playerName?: string; betsRemaining?: number }
-  | { type: "betting_complete"; roomId: string; playerId?: string; phase?: string; highestBet?: number; highestBetter?: string; trump?: boolean; allBetsComplete?: boolean }
-  | { type: "card_played"; roomId: string; playerId?: string; card?: string; playerName?: string; cardsInTrick?: number }
-  | { type: "trick_complete"; roomId: string; playerId?: string; winner?: string; winnerName?: string }
-  | { type: "round_complete"; roomId: string; playerId?: string; round?: number; scores?: any }
-  | { type: "round_scoring_complete"; roomId: string; playerId?: string; roundResult?: any; newRound?: number; phase?: string; scores?: any }
-  | { type: "game_state_updated"; roomId: string; playerId?: string; [key: string]: any }
+
+  // Player Events
+  | { type: "PLAYER_JOINED"; roomId: string; data: BaseEventData }
+  | { type: "PLAYER_LEFT"; roomId: string; data: BaseEventData }
+  | { type: "PLAYER_READY_CHANGED"; roomId: string; data: BaseEventData & { ready: boolean; allReady: boolean } }
+
+  // Team Events
+  | { type: "TEAM_SELECTED"; roomId: string; data: TeamEventData }
+  | { type: "BETTING_PHASE_STARTED"; roomId: string; data: BettingEventData }
+
+  // Betting Events
+  | { type: "BET_PLACED"; roomId: string; data: BettingEventData }
+  | { type: "BETTING_COMPLETE"; roomId: string; data: BettingEventData }
+
+  // Card Events
+  | { type: "CARD_PLAYED"; roomId: string; data: CardEventData }
+  | { type: "TRICK_COMPLETE"; roomId: string; data: CardEventData }
+
+  // Round Events
+  | { type: "ROUND_COMPLETE"; roomId: string; data: RoundEventData }
+  | { type: "ROUND_SCORING_COMPLETE"; roomId: string; data: RoundEventData }
+
+  // Game State Events
+  | { type: "GAME_STATE_UPDATED"; roomId: string; data: GameStateEventData }
+
+// Event type constants for consistency
+export const EVENT_TYPES = {
+  // System
+  CONNECTED: "CONNECTED" as const,
+  HEARTBEAT: "HEARTBEAT" as const,
+  ROOM_UPDATED: "ROOM_UPDATED" as const,
+
+  // Players
+  PLAYER_JOINED: "PLAYER_JOINED" as const,
+  PLAYER_LEFT: "PLAYER_LEFT" as const,
+  PLAYER_READY_CHANGED: "PLAYER_READY_CHANGED" as const,
+
+  // Teams
+  TEAM_SELECTED: "TEAM_SELECTED" as const,
+  BETTING_PHASE_STARTED: "BETTING_PHASE_STARTED" as const,
+
+  // Betting
+  BET_PLACED: "BET_PLACED" as const,
+  BETTING_COMPLETE: "BETTING_COMPLETE" as const,
+
+  // Cards
+  CARD_PLAYED: "CARD_PLAYED" as const,
+  TRICK_COMPLETE: "TRICK_COMPLETE" as const,
+
+  // Rounds
+  ROUND_COMPLETE: "ROUND_COMPLETE" as const,
+  ROUND_SCORING_COMPLETE: "ROUND_SCORING_COMPLETE" as const,
+
+  // Game State
+  GAME_STATE_UPDATED: "GAME_STATE_UPDATED" as const,
+} as const
+
+export type EventType = typeof EVENT_TYPES[keyof typeof EVENT_TYPES]
 
 // In-memory event store (in production, use Redis or similar)
 class EventStore {

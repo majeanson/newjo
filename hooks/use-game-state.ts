@@ -28,12 +28,23 @@ export function useGameState({ roomId, initialGameState, onGameEvent }: UseGameS
   const refreshGameState = useCallback(async () => {
     try {
       console.log('🔄 Refreshing game state for room:', roomId)
-      const response = await fetch(`/api/game-state/${roomId}`)
+      // Add cache busting to ensure fresh data
+      const response = await fetch(`/api/game-state/${roomId}?t=${Date.now()}`)
       if (response.ok) {
         const result = await response.json()
         if (result.gameState) {
-          console.log('✅ Game state refreshed:', result.gameState.phase, 'Round:', result.gameState.round)
-          setGameState(result.gameState)
+          console.log('✅ Game state refreshed:', {
+            phase: result.gameState.phase,
+            round: result.gameState.round,
+            currentTurn: result.gameState.currentTurn,
+            betsCount: Object.keys(result.gameState.bets || {}).length,
+            playersCount: Object.keys(result.gameState.players || {}).length
+          })
+
+          // Force state update by creating a new object reference
+          const newGameState = { ...result.gameState }
+          setGameState(newGameState)
+          console.log('✅ State updated in hook with new reference')
         } else {
           console.log('❌ No game state in response:', result)
         }
@@ -80,18 +91,20 @@ export function useGameState({ roomId, initialGameState, onGameEvent }: UseGameS
             }
 
             // Handle specific event types
-            console.log('Game event received:', data.type, data)
+            console.log('🎮 Game event received:', data.type, data)
 
-            if (data.type === 'bet_placed') {
-              console.log('🎯 Bet placed event received, refreshing game state')
-              refreshGameState()
-            } else if (data.type === 'betting_complete') {
-              console.log('🎯 Betting complete event received, refreshing game state')
-              refreshGameState()
-            } else {
-              // Any other event means game state changed - refresh it
-              console.log('🎯 Other game event received, refreshing state')
-              refreshGameState()
+            // Only refresh on specific game events that change state
+            const stateChangingEvents = ['BET_PLACED', 'BETTING_COMPLETE', 'TEAM_SELECTED', 'GAME_RESET']
+
+            if (stateChangingEvents.includes(data.type)) {
+              console.log(`🔄 State-changing event received (${data.type}), refreshing game state`)
+              // Small delay to ensure database is updated before fetching
+              setTimeout(() => {
+                console.log(`🔄 Executing delayed refresh for event: ${data.type}`)
+                refreshGameState()
+              }, 200)
+            } else if (data.type !== 'CONNECTED' && data.type !== 'HEARTBEAT') {
+              console.log(`⏭️ Non-state-changing event: ${data.type}`)
             }
 
             // Call custom event handler if provided
@@ -143,6 +156,16 @@ export function useGameState({ roomId, initialGameState, onGameEvent }: UseGameS
       }
     }
   }, [roomId]) // Only depend on roomId to prevent reconnections
+
+  // Initial game state refresh on mount
+  useEffect(() => {
+    if (roomId) {
+      console.log('🎮 Initial game state refresh for room:', roomId)
+      refreshGameState()
+    }
+  }, [roomId]) // Only depend on roomId, not refreshGameState to avoid loops
+
+  // Remove aggressive polling - rely on SSE events instead
 
   // Send game event
   const sendGameEvent = useCallback(async (eventType: string, data?: any) => {

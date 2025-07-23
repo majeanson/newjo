@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Coins, Crown, Clock, X } from "lucide-react"
 import { GameState, Team, Bets, BetsNumericValue, Bet } from "@/lib/game-types"
 import { placeBetAction } from "@/app/actions/game-logic"
+import { useToast } from "@/hooks/use-toast"
 
 interface BettingPhaseProps {
   roomId: string
@@ -21,10 +22,49 @@ export default function BettingPhase({ roomId, gameState, currentUserId, onGameS
   const [isTrump, setIsTrump] = useState(true)
   const [isPlacing, setIsPlacing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [recentBetters, setRecentBetters] = useState<Set<string>>(new Set())
+  const { toast } = useToast()
   const isMyTurn = gameState.currentTurn === currentUserId
   const playerBet = gameState.bets[currentUserId]
   const allBets = Object.values(gameState.bets)
   const highestBet = gameState.highestBet
+
+  // Track gameState changes
+  useEffect(() => {
+    console.log('🎯 Betting Phase - gameState prop changed:', {
+      currentTurn: gameState.currentTurn,
+      currentUserId,
+      isMyTurn: gameState.currentTurn === currentUserId,
+      playerBet: !!gameState.bets[currentUserId],
+      allBetsCount: Object.keys(gameState.bets || {}).length,
+      totalPlayers: gameState.turnOrder?.length || 0,
+      timestamp: Date.now()
+    })
+  }, [gameState, currentUserId])
+
+  // Debug logging for betting phase
+  console.log('🎯 Betting Phase Render:', {
+    currentTurn: gameState.currentTurn,
+    currentUserId,
+    isMyTurn,
+    playerBet: !!playerBet,
+    allBetsCount: allBets.length,
+    totalPlayers: gameState.turnOrder.length
+  })
+
+  // Track recent bet placements for visual feedback
+  useEffect(() => {
+    const currentBetters = new Set(Object.keys(gameState.bets))
+    const newBetters = new Set([...currentBetters].filter(id => !recentBetters.has(id)))
+
+    if (newBetters.size > 0) {
+      setRecentBetters(currentBetters)
+      // Clear the highlight after 3 seconds
+      setTimeout(() => {
+        setRecentBetters(new Set())
+      }, 3000)
+    }
+  }, [gameState.bets, recentBetters])
 
   const handlePlaceBet = async () => {
     if (isPlacing || !isMyTurn || !selectedBet) return
@@ -37,6 +77,17 @@ export default function BettingPhase({ roomId, gameState, currentUserId, onGameS
 
       if (result.success && result.gameState) {
         onGameStateUpdate(result.gameState)
+
+        // Show success toast
+        const betLabel = selectedBet === Bets.SKIP ? "Skip" : `${BetsNumericValue[selectedBet]} tricks`
+        const trumpText = selectedBet !== Bets.SKIP && !isTrump ? " (No Trump)" : ""
+
+        toast({
+          title: "🎯 Bet Placed!",
+          description: `You bet: ${betLabel}${trumpText}`,
+          variant: "default",
+        })
+
         setSelectedBet(null)
         setIsTrump(false)
       } else {
@@ -262,17 +313,61 @@ export default function BettingPhase({ roomId, gameState, currentUserId, onGameS
           </div>
         )}
 
-        {/* Progress */}
-        <div className="text-center">
-          <p className="text-sm text-gray-600 mb-2">
-            {allBets.length}/{gameState.turnOrder.length} players have bet
-          </p>
-          
-          {allBets.length === gameState.turnOrder.length && (
-            <p className="text-green-600 font-semibold">
-              ✓ All bets placed! Starting card game...
+        {/* Betting Progress */}
+        <div className="space-y-4">
+          <div className="text-center">
+            <p className="text-sm text-gray-600 mb-2">
+              {allBets.length}/{gameState.turnOrder.length} players have bet
             </p>
-          )}
+
+            {allBets.length === gameState.turnOrder.length && (
+              <p className="text-green-600 font-semibold">
+                ✓ All bets placed! Starting card game...
+              </p>
+            )}
+          </div>
+
+          {/* Player Betting Status */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {gameState.turnOrder.map((playerId) => {
+              const player = gameState.players[playerId]
+              const playerBet = gameState.bets[playerId]
+              const isCurrentTurn = gameState.currentTurn === playerId
+              const isCurrentUser = playerId === currentUserId
+              const isRecentBetter = recentBetters.has(playerId) && playerBet
+
+              return (
+                <div
+                  key={playerId}
+                  className={`p-2 rounded-lg border text-center text-sm transition-all duration-500 ${
+                    isCurrentTurn
+                      ? 'bg-yellow-100 border-yellow-300'
+                      : playerBet
+                      ? isRecentBetter
+                        ? 'bg-green-200 border-green-400 shadow-lg animate-pulse'
+                        : 'bg-green-100 border-green-300'
+                      : 'bg-gray-100 border-gray-300'
+                  }`}
+                >
+                  <div className="font-medium">
+                    {player?.name || 'Unknown'}
+                    {isCurrentUser && ' (You)'}
+                  </div>
+                  <div className="text-xs mt-1">
+                    {isCurrentTurn && !playerBet ? (
+                      <span className="text-yellow-700">🕐 Betting...</span>
+                    ) : playerBet ? (
+                      <span className="text-green-700">
+                        ✓ {getBetDisplay(playerBet)}
+                      </span>
+                    ) : (
+                      <span className="text-gray-500">⏳ Waiting</span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       </CardContent>
     </Card>

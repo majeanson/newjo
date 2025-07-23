@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { getCurrentUser } from "./auth"
 import { prisma } from "@/lib/prisma"
 import { GameState, GamePhase, Card, Team, Player, Bet, Bets } from "@/lib/game-types"
+// import { EVENT_TYPES } from "@/lib/events" // Available for future use
 
 // Helper function to safely cast JSON to expected type
 function safeJsonCast<T>(value: any, fallback: T): T {
@@ -127,7 +128,7 @@ async function saveGameState(roomId: string, gameState: GameState): Promise<void
   const playerSeats: Record<string, number> = {}
   const playerReady: Record<string, boolean> = {}
 
-  Object.values(gameState.players).forEach(player => {
+  Object.values(gameState.players).forEach((player: Player) => {
     if (player.team) playerTeams[player.id] = player.team
     if (player.seatPosition !== undefined) playerSeats[player.id] = player.seatPosition
     playerReady[player.id] = player.isReady
@@ -202,7 +203,7 @@ export async function selectPlayerTeam(
 
     // Broadcast team selection event
     await broadcastGameEvent({
-      type: 'team_selected',
+      type: 'TEAM_SELECTED',
       roomId,
       userId: user.id,
       data: {
@@ -217,7 +218,7 @@ export async function selectPlayerTeam(
     // If teams are balanced and betting phase started, broadcast that too
     if (teamsBalanced) {
       await broadcastGameEvent({
-        type: 'betting_phase_started',
+        type: 'BETTING_PHASE_STARTED',
         roomId,
         userId: user.id,
         data: {
@@ -297,10 +298,13 @@ export async function placeBetAction(
       // Return the game state with cards dealt
       await saveGameState(roomId, gameStateWithCards)
 
+      // Small delay to ensure database write is committed
+      await new Promise(resolve => setTimeout(resolve, 50))
+
       // Broadcast that all bets are complete and cards phase started
       console.log('🎯 Broadcasting betting_complete event for room:', roomId)
       await broadcastGameEvent({
-        type: 'betting_complete',
+        type: 'BETTING_COMPLETE',
         roomId,
         userId,
         data: {
@@ -320,17 +324,23 @@ export async function placeBetAction(
 
     await saveGameState(roomId, newGameState)
 
+    // Small delay to ensure database write is committed
+    await new Promise(resolve => setTimeout(resolve, 50))
+
     // Broadcast that a bet was placed
     console.log('🎯 Broadcasting bet_placed event for:', userId)
     await broadcastGameEvent({
-      type: 'bet_placed',
+      type: 'BET_PLACED',
       roomId,
       userId,
       data: {
         betValue,
         trump,
         playerName: newGameState.players[userId]?.name,
-        betsRemaining: newGameState.turnOrder.length - Object.keys(newGameState.bets).length
+        betsRemaining: newGameState.turnOrder.length - Object.keys(newGameState.bets).length,
+        nextPlayer: newGameState.players[newGameState.currentTurn]?.name,
+        totalBets: Object.keys(newGameState.bets).length,
+        totalPlayers: newGameState.turnOrder.length
       },
       timestamp: new Date()
     })
@@ -376,13 +386,13 @@ export async function setPlayerReady(
 
     // Broadcast ready state change event
     await broadcastGameEvent({
-      type: 'player_ready_changed',
+      type: 'PLAYER_READY_CHANGED',
       roomId,
       userId: user.id,
       data: {
         ready,
         playerName: newGameState.players[user.id]?.name,
-        allReady: Object.values(newGameState.players).every(p => p.isReady)
+        allReady: Object.values(newGameState.players).every((p: Player) => p.isReady)
       },
       timestamp: new Date()
     })
@@ -443,7 +453,7 @@ export async function playCardAction(
     // Broadcast card played event
     console.log('🎯 Broadcasting card_played event for:', userId)
     await broadcastGameEvent({
-      type: 'card_played',
+      type: 'CARD_PLAYED',
       roomId,
       userId,
       data: {
@@ -463,7 +473,7 @@ export async function playCardAction(
 
       // Broadcast trick complete event
       await broadcastGameEvent({
-        type: 'trick_complete',
+        type: 'TRICK_COMPLETE',
         roomId,
         userId,
         data: {
@@ -488,7 +498,7 @@ export async function playCardAction(
 
         // Broadcast round complete event
         await broadcastGameEvent({
-          type: 'round_complete',
+          type: 'ROUND_COMPLETE',
           roomId,
           userId,
           data: {
@@ -576,7 +586,7 @@ export async function processRoundScoring(
 
     // Broadcast round scoring complete event
     await broadcastGameEvent({
-      type: 'round_scoring_complete',
+      type: 'ROUND_SCORING_COMPLETE',
       roomId,
       userId: user.id,
       data: {

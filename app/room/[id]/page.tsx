@@ -1,7 +1,6 @@
 import { getCurrentUser } from "../../actions/auth"
 import { redirect } from "next/navigation"
-import { getRoomData } from "../../actions/game"
-import { getRoomGameState } from "../../actions/game-actions"
+import { getRoomGameState, getRoomData } from "../../actions/game-actions"
 
 import GameWrapper from "./game-wrapper"
 interface RoomPageProps {

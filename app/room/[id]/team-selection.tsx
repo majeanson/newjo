@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Users, Crown } from "lucide-react"
 import { GameState, Team } from "@/lib/game-types"
-import { selectTeamAction, forceAutoStartAction } from "../../actions/game-actions"
+import { selectTeamAction, autoAssignTeamsAction, forceAutoStartAction } from "../../actions/game-actions"
+import { useToast } from "@/hooks/use-toast"
 
 interface TeamSelectionProps {
   roomId: string
@@ -18,11 +19,23 @@ interface TeamSelectionProps {
 export default function TeamSelection({ roomId, gameState, currentUserId, onGameStateUpdate }: TeamSelectionProps) {
   const [isSelecting, setIsSelecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { toast } = useToast()
 
   const currentPlayer = gameState.players[currentUserId]
   const teamAPlayers = Object.values(gameState.players).filter(p => p.team === Team.A)
   const teamBPlayers = Object.values(gameState.players).filter(p => p.team === Team.B)
   const unassignedPlayers = Object.values(gameState.players).filter(p => !p.team)
+  const teamsAreAssigned = teamAPlayers.length === 2 && teamBPlayers.length === 2
+
+  // Debug logging
+  console.log('🎯 Team Selection Debug:', {
+    teamACount: teamAPlayers.length,
+    teamBCount: teamBPlayers.length,
+    unassignedCount: unassignedPlayers.length,
+    teamsAreAssigned,
+    gamePhase: gameState.phase,
+    allPlayers: Object.values(gameState.players).map(p => ({ name: p.name, team: p.team, seat: p.seatPosition }))
+  })
 
   const handleTeamSelect = async (team: Team) => {
     if (isSelecting) return
@@ -35,6 +48,24 @@ export default function TeamSelection({ roomId, gameState, currentUserId, onGame
 
       if (result.success && result.gameState) {
         onGameStateUpdate(result.gameState)
+
+        // Show success toast
+        const teamACount = Object.values(result.gameState.players).filter(p => p.team === Team.A).length
+        const teamBCount = Object.values(result.gameState.players).filter(p => p.team === Team.B).length
+
+        if (teamACount === 2 && teamBCount === 2) {
+          toast({
+            title: "🎉 Teams Complete!",
+            description: "All teams are balanced. Moving to betting phase...",
+            variant: "default",
+          })
+        } else {
+          toast({
+            title: `✅ Joined Team ${team}`,
+            description: `You're now on Team ${team}. Waiting for other players...`,
+            variant: "default",
+          })
+        }
       } else {
         setError(result.error || "Failed to select team")
       }
@@ -46,7 +77,36 @@ export default function TeamSelection({ roomId, gameState, currentUserId, onGame
     }
   }
 
-  const handleForceStart = async () => {
+  const handleAutoAssign = async () => {
+    if (isSelecting) return
+
+    setIsSelecting(true)
+    setError(null)
+
+    try {
+      const result = await autoAssignTeamsAction(roomId)
+
+      if (result.success && result.gameState) {
+        onGameStateUpdate(result.gameState)
+
+        // Show success toast
+        toast({
+          title: "🎯 Teams Auto-Assigned!",
+          description: "Teams have been assigned in A1, B2, A3, B4 pattern. Check your seat assignment!",
+          variant: "default",
+        })
+      } else {
+        setError(result.error || "Failed to auto-assign teams")
+      }
+    } catch (error) {
+      console.error("Auto-assign error:", error)
+      setError("Failed to auto-assign teams")
+    } finally {
+      setIsSelecting(false)
+    }
+  }
+
+  const handleProceedToBetting = async () => {
     if (isSelecting) return
 
     setIsSelecting(true)
@@ -57,12 +117,19 @@ export default function TeamSelection({ roomId, gameState, currentUserId, onGame
 
       if (result.success && result.gameState) {
         onGameStateUpdate(result.gameState)
+
+        // Show success toast
+        toast({
+          title: "🎲 Betting Phase Started!",
+          description: "Teams are set! Time to place your bets.",
+          variant: "default",
+        })
       } else {
-        setError(result.error || "Failed to start game")
+        setError(result.error || "Failed to start betting")
       }
     } catch (error) {
-      console.error("Force start error:", error)
-      setError("Failed to start game")
+      console.error("Proceed to betting error:", error)
+      setError("Failed to start betting")
     } finally {
       setIsSelecting(false)
     }
@@ -88,21 +155,41 @@ export default function TeamSelection({ roomId, gameState, currentUserId, onGame
           </div>
         )}
 
-        {Object.keys(gameState.players).length === 4 && (
+        {Object.keys(gameState.players).length === 4 && !teamsAreAssigned && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <p className="text-sm text-green-700 text-center font-semibold mb-3">
-              ✅ 4 players online! Ready to start the game.
+              ✅ 4 players online! Ready to auto-assign teams and start the game.
             </p>
             <div className="text-center">
               <Button
-                onClick={handleForceStart}
+                onClick={handleAutoAssign}
                 disabled={isSelecting}
                 className="bg-green-600 hover:bg-green-700"
               >
-                {isSelecting ? "Starting Game..." : "🎮 Start Game Now"}
+                {isSelecting ? "Auto-assigning..." : "🎮 Auto-assign Teams"}
               </Button>
               <p className="text-xs text-green-600 mt-2">
-                Teams will be auto-assigned (A1, B2, A3, B4) and game will begin!
+                Teams will be auto-assigned (A1, B2, A3, B4) and seats will be shown!
+              </p>
+            </div>
+          </div>
+        )}
+
+        {Object.keys(gameState.players).length === 4 && teamsAreAssigned && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-700 text-center font-semibold mb-3">
+              🎯 Teams Assigned! Check the seat assignments below.
+            </p>
+            <div className="text-center">
+              <Button
+                onClick={handleProceedToBetting}
+                disabled={isSelecting}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {isSelecting ? "Starting Betting..." : "🎲 Proceed to Betting Phase"}
+              </Button>
+              <p className="text-xs text-blue-600 mt-2">
+                Ready to start the betting round!
               </p>
             </div>
           </div>
@@ -224,6 +311,42 @@ export default function TeamSelection({ roomId, gameState, currentUserId, onGame
           </div>
         )}
 
+        {/* Seat Assignment Display */}
+        {teamsAreAssigned && (
+          <div className="border rounded-lg p-6 bg-gradient-to-r from-blue-50 to-green-50">
+            <h4 className="font-bold text-center mb-4 text-gray-800">🪑 Seat Assignments</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Object.values(gameState.players)
+                .sort((a, b) => (a.seatPosition || 0) - (b.seatPosition || 0))
+                .map((player, index) => (
+                  <div key={player.id} className={`text-center p-3 rounded-lg border-2 ${
+                    player.team === Team.A ? 'bg-red-100 border-red-300' : 'bg-blue-100 border-blue-300'
+                  }`}>
+                    <div className="font-bold text-lg">
+                      Seat {(player.seatPosition || 0) + 1}
+                    </div>
+                    <div className={`text-sm font-medium ${
+                      player.team === Team.A ? 'text-red-700' : 'text-blue-700'
+                    }`}>
+                      Team {player.team}
+                    </div>
+                    <div className="font-medium mt-1">{player.name}</div>
+                    {player.id === currentUserId && (
+                      <div className="text-xs bg-yellow-200 text-yellow-800 px-2 py-1 rounded mt-1">
+                        You
+                      </div>
+                    )}
+                  </div>
+                ))}
+            </div>
+            <div className="text-center mt-4">
+              <p className="text-sm text-gray-600">
+                🎯 Pattern: A1 → B2 → A3 → B4 (alternating teams)
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Progress Indicator */}
         <div className="text-center">
           <div className="flex justify-center items-center gap-4 mb-2">
@@ -232,8 +355,8 @@ export default function TeamSelection({ roomId, gameState, currentUserId, onGame
             <div className={`w-3 h-3 rounded-full ${teamBPlayers.length === 2 ? 'bg-green-500' : 'bg-gray-300'}`} />
             <span className="text-sm">Team B Complete</span>
           </div>
-          
-          {teamAPlayers.length === 2 && teamBPlayers.length === 2 && (
+
+          {!teamsAreAssigned && teamAPlayers.length === 2 && teamBPlayers.length === 2 && (
             <p className="text-green-600 font-semibold">
               ✓ Teams are ready! Seats assigned automatically (A1, B2, A3, B4). Moving to betting...
             </p>
