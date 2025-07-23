@@ -3,24 +3,67 @@
 import { revalidatePath } from "next/cache"
 import { getCurrentUser } from "./auth"
 import { prisma } from "@/lib/prisma"
-import { GameState, GamePhase, Card, Team, Player, Bet } from "@/lib/game-types"
+import { GameState, GamePhase, Card, Team, Player, Bet, Bets, CardColor } from "@/lib/game-types"
 import { getRoomData } from "./game"
+
+// Type for game event data
+export interface GameEventData {
+  phase?: GamePhase
+  round?: number
+  playerName?: string
+  players?: number
+  autoStarted?: boolean
+  forceStarted?: boolean
+  message?: string
+}
 
 // Type for game events
 export interface GameEvent {
   type: 'game_state_updated' | 'player_joined' | 'player_left' | 'card_played' | 'bet_placed' | 'round_ended'
   roomId: string
   userId?: string
-  data?: any
+  data?: GameEventData
   timestamp: Date
+}
+
+// Type for room with extended fields
+interface RoomWithGameData {
+  gamePhase?: string | null
+  currentRound?: number | null
+  currentTurn?: string | null
+  dealerUserId?: string | null
+  starterUserId?: string | null
+  trumpColor?: string | null
+  highestBetUserId?: string | null
+  highestBetValue?: number | null
+  highestBetTrump?: boolean | null
+  playerTeams?: unknown
+  playerSeats?: unknown
+  playerReady?: unknown
+  playerBets?: unknown
+  playedCards?: unknown
+  playerHands?: unknown
+  tricksWon?: unknown
+  gameScores?: unknown
+}
+
+// Helper function to safely cast JSON to expected type
+function safeJsonCast<T>(value: unknown, fallback: T): T {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as T
+  }
+  return fallback
 }
 
 // Broadcast game event to all players in room
 async function broadcastGameEvent(event: GameEvent): Promise<void> {
+  // Store event in database for persistence
+  await storeGameEvent(event)
+
   // Emit to event store for real-time SSE updates
   const { eventStore } = await import("@/lib/events")
   eventStore.emit({
-    type: event.type as any,
+    type: event.type as 'game_state_updated',
     roomId: event.roomId,
     ...(event.userId && { playerId: event.userId }),
     ...(event.data && event.data)
@@ -49,9 +92,10 @@ export async function getRoomGameState(roomId: string): Promise<GameState | null
 
     // Build players from room members and stored data
     const players: Record<string, Player> = {}
-    const playerTeams = (room as any).playerTeams as Record<string, Team> || {}
-    const playerSeats = (room as any).playerSeats as Record<string, number> || {}
-    const playerReady = (room as any).playerReady as Record<string, boolean> || {}
+    const roomData = room as RoomWithGameData
+    const playerTeams = safeJsonCast<Record<string, Team>>(roomData.playerTeams, {})
+    const playerSeats = safeJsonCast<Record<string, number>>(roomData.playerSeats, {})
+    const playerReady = safeJsonCast<Record<string, boolean>>(roomData.playerReady, {})
 
     room.members.forEach(member => {
       players[member.userId] = {
@@ -71,29 +115,30 @@ export async function getRoomGameState(roomId: string): Promise<GameState | null
 
     // Build highest bet if exists
     let highestBet: Bet | undefined = undefined
-    if ((room as any).highestBetUserId && (room as any).highestBetValue !== null) {
+    if (roomData.highestBetUserId && roomData.highestBetValue !== null) {
       highestBet = {
-        playerId: (room as any).highestBetUserId,
-        value: (room as any).highestBetValue,
-        trump: (room as any).highestBetTrump || false,
+        playerId: roomData.highestBetUserId,
+        betValue: Bets.SEVEN, // Default bet value since it's not stored separately
+        value: roomData.highestBetValue,
+        trump: roomData.highestBetTrump || false,
         timestamp: new Date()
       }
     }
 
     return {
-      phase: ((room as any).gamePhase as GamePhase) || GamePhase.TEAM_SELECTION,
-      round: (room as any).currentRound || 1,
-      currentTurn: (room as any).currentTurn || '',
-      dealer: (room as any).dealerUserId || '',
-      starter: (room as any).starterUserId || '',
-      trump: (room as any).trumpColor as any,
+      phase: (roomData.gamePhase as GamePhase) || GamePhase.TEAM_SELECTION,
+      round: roomData.currentRound || 1,
+      currentTurn: roomData.currentTurn || '',
+      dealer: roomData.dealerUserId || '',
+      starter: roomData.starterUserId || '',
+      trump: roomData.trumpColor as CardColor | undefined,
       highestBet,
       players,
-      bets: ((room as any).playerBets as Record<string, Bet>) || {},
-      playedCards: ((room as any).playedCards as Record<string, Card>) || {},
-      playerHands: ((room as any).playerHands as Record<string, Card[]>) || {},
-      wonTricks: ((room as any).tricksWon as Record<string, number>) || {},
-      scores: ((room as any).gameScores as Record<string, number>) || {},
+      bets: safeJsonCast<Record<string, Bet>>(roomData.playerBets, {}),
+      playedCards: safeJsonCast<Record<string, Card>>(roomData.playedCards, {}),
+      playerHands: safeJsonCast<Record<string, Card[]>>(roomData.playerHands, {}),
+      wonTricks: safeJsonCast<Record<string, number>>(roomData.tricksWon, {}),
+      scores: safeJsonCast<Record<string, number>>(roomData.gameScores, {}),
       turnOrder
     }
   } catch (error) {
@@ -127,14 +172,14 @@ async function saveRoomGameState(roomId: string, gameState: GameState): Promise<
         trumpColor: gameState.trump || null,
         
         // JSON fields
-        playerHands: gameState.playerHands as any,
-        playedCards: gameState.playedCards as any,
-        playerBets: gameState.bets as any,
-        playerTeams: playerTeams as any,
-        playerSeats: playerSeats as any,
-        playerReady: playerReady as any,
-        tricksWon: gameState.wonTricks as any,
-        gameScores: gameState.scores as any,
+        playerHands: gameState.playerHands as object,
+        playedCards: gameState.playedCards as object,
+        playerBets: gameState.bets as object,
+        playerTeams: playerTeams as object,
+        playerSeats: playerSeats as object,
+        playerReady: playerReady as object,
+        tricksWon: gameState.wonTricks as object,
+        gameScores: gameState.scores as object,
         
         // Highest bet
         highestBetUserId: gameState.highestBet?.playerId || null,
@@ -382,7 +427,7 @@ export async function initializeGame(roomId: string): Promise<{ success: boolean
     }
 
     // Create initial game state
-    const players: Record<string, any> = {}
+    const players: Record<string, Player> = {}
     room.members.forEach(member => {
       players[member.userId] = {
         id: member.userId,
@@ -644,9 +689,162 @@ export async function forceAutoStartAction(roomId: string): Promise<{ success: b
   }
 }
 
-// Get game events (for real-time updates)
-export async function getGameEvents(roomId: string, since?: Date): Promise<GameEvent[]> {
-  // This would fetch events from database in a real implementation
-  // For now, return empty array
-  return []
+// Store game event in database for persistence
+async function storeGameEvent(event: GameEvent): Promise<void> {
+  try {
+    // For now, we'll store events in the room's roundHistory as a simple solution
+    // In a production app, you'd want a dedicated events table
+    const room = await prisma.room.findUnique({
+      where: { id: event.roomId }
+    })
+
+    if (!room) return
+
+    const existingHistory = safeJsonCast<Array<unknown>>(room.roundHistory, [])
+    const eventRecord = {
+      id: `event_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+      type: event.type,
+      userId: event.userId,
+      data: event.data,
+      timestamp: event.timestamp.toISOString()
+    }
+
+    const updatedHistory = [...existingHistory, eventRecord]
+
+    // Keep only the last 200 events to prevent database bloat
+    const trimmedHistory = updatedHistory.slice(-200)
+
+    await prisma.room.update({
+      where: { id: event.roomId },
+      data: {
+        roundHistory: trimmedHistory as object
+      }
+    })
+  } catch (error) {
+    console.error("Failed to store game event:", error)
+  }
+}
+
+// Get game events (for real-time updates) - Server Action
+export async function getGameEvents(roomId: string, since?: Date): Promise<{ success: boolean; events?: GameEvent[]; error?: string }> {
+  try {
+    const room = await prisma.room.findUnique({
+      where: { id: roomId }
+    })
+
+    if (!room) {
+      return { success: false, error: "Room not found" }
+    }
+
+    const history = safeJsonCast<Array<{
+      id: string
+      type: string
+      userId?: string
+      data?: GameEventData
+      timestamp: string
+    }>>(room.roundHistory, [])
+
+    // Filter events since the specified date
+    const sinceTime = since?.getTime() || 0
+    const filteredEvents = history.filter(event => {
+      const eventTime = new Date(event.timestamp).getTime()
+      return eventTime > sinceTime
+    })
+
+    // Convert back to GameEvent format
+    const events = filteredEvents.map(event => ({
+      type: event.type as GameEvent['type'],
+      roomId,
+      userId: event.userId,
+      data: event.data,
+      timestamp: new Date(event.timestamp)
+    }))
+
+    return { success: true, events }
+  } catch (error) {
+    console.error("Failed to get game events:", error)
+    return { success: false, error: "Failed to get game events" }
+  }
+}
+
+// Get recent game events (last 50 events) - Server Action
+export async function getRecentGameEvents(roomId: string): Promise<{ success: boolean; events?: GameEvent[]; error?: string }> {
+  try {
+    const room = await prisma.room.findUnique({
+      where: { id: roomId }
+    })
+
+    if (!room) {
+      return { success: false, error: "Room not found" }
+    }
+
+    const history = safeJsonCast<Array<{
+      id: string
+      type: string
+      userId?: string
+      data?: GameEventData
+      timestamp: string
+    }>>(room.roundHistory, [])
+
+    // Get the last 50 events, sorted by timestamp (most recent first)
+    const recentEvents = history
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 50)
+
+    // Convert back to GameEvent format
+    const events = recentEvents.map(event => ({
+      type: event.type as GameEvent['type'],
+      roomId,
+      userId: event.userId,
+      data: event.data,
+      timestamp: new Date(event.timestamp)
+    }))
+
+    return { success: true, events }
+  } catch (error) {
+    console.error("Failed to get recent game events:", error)
+    return { success: false, error: "Failed to get recent game events" }
+  }
+}
+
+// Clear old game events (keep only last 100 events) - Server Action
+export async function clearOldGameEvents(roomId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const room = await prisma.room.findUnique({
+      where: { id: roomId }
+    })
+
+    if (!room) {
+      return { success: false, error: "Room not found" }
+    }
+
+    const history = safeJsonCast<Array<{
+      id: string
+      type: string
+      userId?: string
+      data?: GameEventData
+      timestamp: string
+    }>>(room.roundHistory, [])
+
+    // Keep only the last 100 events
+    if (history.length > 100) {
+      const recentEvents = history
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, 100)
+
+      await prisma.room.update({
+        where: { id: roomId },
+        data: {
+          roundHistory: recentEvents as object
+        }
+      })
+
+      console.log(`🧹 Cleaned up old events for room ${roomId}: ${history.length} -> ${recentEvents.length}`)
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error("Failed to clear old game events:", error)
+    return { success: false, error: "Failed to clear old game events" }
+  }
 }

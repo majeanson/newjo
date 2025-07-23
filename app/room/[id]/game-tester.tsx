@@ -3,17 +3,15 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { GameState, GamePhase, Team, CardColor } from "@/lib/game-types"
+import { GameState, GamePhase, Team, CardColor, Bets } from "@/lib/game-types"
 
 interface GameTesterProps {
-  roomId: string
   currentUserId: string
   onGameStateUpdate: (newGameState: GameState) => void
 }
 
-export default function GameTester({ roomId, currentUserId, onGameStateUpdate }: GameTesterProps) {
+export default function GameTester({ currentUserId, onGameStateUpdate }: GameTesterProps) {
   const [selectedPhase, setSelectedPhase] = useState<GamePhase>(GamePhase.TEAM_SELECTION)
 
   // Create mock players
@@ -108,6 +106,7 @@ export default function GameTester({ roomId, currentUserId, onGameStateUpdate }:
         
         baseState.highestBet = {
           playerId: currentUserId,
+          betValue: Bets.SEVEN,
           value: 3,
           trump: false,
           timestamp: new Date()

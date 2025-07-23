@@ -1,16 +1,7 @@
 "use server"
 
 import { cookies } from "next/headers"
-import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
-
-// Test users for multi-tab testing
-const TEST_USERS = [
-  { id: "test-player1", name: "Alice" },
-  { id: "test-player2", name: "Bob" },
-  { id: "test-player3", name: "Charlie" },
-  { id: "test-player4", name: "Diana" }
-]
 
 // Dummy players for simulator (permanent in database)
 const DUMMY_PLAYERS = [
@@ -53,15 +44,6 @@ export async function switchToTestUser(userId: string, userName: string) {
 
     // Generate a unique session ID
     const sessionId = `test-session-${userId}-${Date.now()}`
-
-    // Create a session for this user
-    const session = await prisma.userSession.create({
-      data: {
-        sessionId,
-        userId: user.id,
-        lastSeen: new Date()
-      }
-    })
 
     // Set the session cookie
     const cookieStore = await cookies()

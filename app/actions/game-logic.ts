@@ -5,6 +5,14 @@ import { getCurrentUser } from "./auth"
 import { prisma } from "@/lib/prisma"
 import { GameState, GamePhase, Card, Team, Player, Bet, Bets } from "@/lib/game-types"
 
+// Helper function to safely cast JSON to expected type
+function safeJsonCast<T>(value: any, fallback: T): T {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as T
+  }
+  return fallback
+}
+
 // Broadcast game event to all players in room
 async function broadcastGameEvent(event: { type: string; roomId: string; userId?: string; data?: any; timestamp: Date }): Promise<void> {
   const { eventStore } = await import("@/lib/events")
@@ -59,9 +67,9 @@ export async function getGameState(roomId: string): Promise<GameState | null> {
 
     // Build game state from room data
     const players: Record<string, Player> = {}
-    const playerTeams = (room.playerTeams as Record<string, Team>) || {}
-    const playerSeats = (room.playerSeats as Record<string, number>) || {}
-    const playerReady = (room.playerReady as Record<string, boolean>) || {}
+    const playerTeams = safeJsonCast<Record<string, Team>>(room.playerTeams, {})
+    const playerSeats = safeJsonCast<Record<string, number>>(room.playerSeats, {})
+    const playerReady = safeJsonCast<Record<string, boolean>>(room.playerReady, {})
 
     room.members.forEach(member => {
       players[member.userId] = {
@@ -99,11 +107,11 @@ export async function getGameState(roomId: string): Promise<GameState | null> {
       trump: room.trumpColor as any,
       highestBet,
       players,
-      bets: (room.playerBets as Record<string, any>) || {},
-      playedCards: (room.playedCards as Record<string, Card>) || {},
-      playerHands: (room.playerHands as Record<string, Card[]>) || {},
-      wonTricks: (room.tricksWon as Record<string, number>) || {},
-      scores: (room.gameScores as Record<string, number>) || {},
+      bets: safeJsonCast<Record<string, Bet>>(room.playerBets, {}),
+      playedCards: safeJsonCast<Record<string, Card>>(room.playedCards, {}),
+      playerHands: safeJsonCast<Record<string, Card[]>>(room.playerHands, {}),
+      wonTricks: safeJsonCast<Record<string, number>>(room.tricksWon, {}),
+      scores: safeJsonCast<Record<string, number>>(room.gameScores, {}),
       turnOrder
     }
   } catch (error) {
@@ -174,9 +182,10 @@ export async function selectPlayerTeam(
     }
 
     const newGameState = selectTeam(gameState, user.id, team)
-    
+
     // Check if we can move to betting (auto-assign seats)
-    if (areTeamsBalanced(newGameState)) {
+    const teamsBalanced = areTeamsBalanced(newGameState)
+    if (teamsBalanced) {
       // Auto-assign seats in A1, B2, A3, B4 pattern
       const teamAPlayers = Object.values(newGameState.players).filter(p => p.team === Team.A)
       const teamBPlayers = Object.values(newGameState.players).filter(p => p.team === Team.B)
@@ -190,6 +199,36 @@ export async function selectPlayerTeam(
     }
 
     await saveGameState(roomId, newGameState)
+
+    // Broadcast team selection event
+    await broadcastGameEvent({
+      type: 'team_selected',
+      roomId,
+      userId: user.id,
+      data: {
+        team,
+        playerName: newGameState.players[user.id]?.name,
+        teamsBalanced,
+        phase: newGameState.phase
+      },
+      timestamp: new Date()
+    })
+
+    // If teams are balanced and betting phase started, broadcast that too
+    if (teamsBalanced) {
+      await broadcastGameEvent({
+        type: 'betting_phase_started',
+        roomId,
+        userId: user.id,
+        data: {
+          phase: 'bets',
+          turnOrder: newGameState.turnOrder,
+          currentTurn: newGameState.currentTurn
+        },
+        timestamp: new Date()
+      })
+    }
+
     revalidatePath(`/room/${roomId}`)
 
     return { success: true, gameState: newGameState }
@@ -334,6 +373,20 @@ export async function setPlayerReady(
     }
 
     await saveGameState(roomId, newGameState)
+
+    // Broadcast ready state change event
+    await broadcastGameEvent({
+      type: 'player_ready_changed',
+      roomId,
+      userId: user.id,
+      data: {
+        ready,
+        playerName: newGameState.players[user.id]?.name,
+        allReady: Object.values(newGameState.players).every(p => p.isReady)
+      },
+      timestamp: new Date()
+    })
+
     revalidatePath(`/room/${roomId}`)
 
     return { success: true, gameState: newGameState }
@@ -520,6 +573,21 @@ export async function processRoundScoring(
     const newGameState = processRoundEnd(gameState)
 
     await saveGameState(roomId, newGameState)
+
+    // Broadcast round scoring complete event
+    await broadcastGameEvent({
+      type: 'round_scoring_complete',
+      roomId,
+      userId: user.id,
+      data: {
+        roundResult,
+        newRound: newGameState.round,
+        phase: newGameState.phase,
+        scores: newGameState.scores
+      },
+      timestamp: new Date()
+    })
+
     revalidatePath(`/room/${roomId}`)
 
     return {

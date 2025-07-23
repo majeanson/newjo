@@ -1,12 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { GameState, GamePhase, Team, CardColor } from "@/lib/game-types"
+import { GameState, GamePhase, Team } from "@/lib/game-types"
 import GamePhases from "./game-phases"
 import GameTester from "./game-tester"
 import GameInitializer from "./game-initializer"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import GameEventsPanel from "@/components/game-events-panel"
 
 interface GameWrapperProps {
   roomId: string
@@ -74,8 +75,9 @@ export default function GameWrapper({ roomId, currentUserId, initialGameState, p
   return (
     <div className="space-y-6">
       <Tabs defaultValue="game" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="game">Game Interface</TabsTrigger>
+          <TabsTrigger value="events">Game Events</TabsTrigger>
           <TabsTrigger value="tester">Testing Panel</TabsTrigger>
         </TabsList>
 
@@ -94,7 +96,11 @@ export default function GameWrapper({ roomId, currentUserId, initialGameState, p
             />
           )}
         </TabsContent>
-        
+
+        <TabsContent value="events" className="space-y-6">
+          <GameEventsPanel roomId={roomId} />
+        </TabsContent>
+
         <TabsContent value="tester" className="space-y-6">
           <GameTester
             roomId={roomId}

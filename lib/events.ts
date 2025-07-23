@@ -5,11 +5,15 @@ export type GameEvent =
   | { type: "PLAYER_JOINED"; roomId: string; playerName: string; playerId: string }
   | { type: "PLAYER_LEFT"; roomId: string; playerName: string; playerId: string }
   | { type: "ROOM_UPDATED"; roomId: string }
+  | { type: "team_selected"; roomId: string; playerId?: string; team?: string; playerName?: string; teamsBalanced?: boolean; phase?: string }
+  | { type: "betting_phase_started"; roomId: string; playerId?: string; phase?: string; turnOrder?: string[]; currentTurn?: string }
+  | { type: "player_ready_changed"; roomId: string; playerId?: string; ready?: boolean; playerName?: string; allReady?: boolean }
   | { type: "bet_placed"; roomId: string; playerId?: string; betValue?: string; trump?: boolean; playerName?: string; betsRemaining?: number }
   | { type: "betting_complete"; roomId: string; playerId?: string; phase?: string; highestBet?: number; highestBetter?: string; trump?: boolean; allBetsComplete?: boolean }
   | { type: "card_played"; roomId: string; playerId?: string; card?: string; playerName?: string; cardsInTrick?: number }
   | { type: "trick_complete"; roomId: string; playerId?: string; winner?: string; winnerName?: string }
   | { type: "round_complete"; roomId: string; playerId?: string; round?: number; scores?: any }
+  | { type: "round_scoring_complete"; roomId: string; playerId?: string; roundResult?: any; newRound?: number; phase?: string; scores?: any }
   | { type: "game_state_updated"; roomId: string; playerId?: string; [key: string]: any }
 
 // In-memory event store (in production, use Redis or similar)

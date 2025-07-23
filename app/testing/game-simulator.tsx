@@ -5,13 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { GameState, GamePhase, Team, CardColor } from "@/lib/game-types"
+import { GameState, GamePhase, Team, CardColor, Bets } from "@/lib/game-types"
 import TeamSelection from "../room/[id]/team-selection"
 import BettingPhase from "../room/[id]/betting-phase"
 import CardGame from "../room/[id]/card-game"
 import { Users, RotateCcw, Zap } from "lucide-react"
 import { forceInitializeGame, getRoomGameState } from "../actions/game-actions"
 import { createSimulatorRoom } from "../actions/testing"
+import GameEventsPanel from "@/components/game-events-panel"
 
 // Fixed simulator room ID
 const SIMULATOR_ROOM_ID = "simulator-room-fixed"
@@ -28,10 +29,6 @@ export default function GameSimulator() {
   const [gameState, setGameState] = useState<GameState>(createInitialGameState())
   const [activePlayer, setActivePlayer] = useState<string>("dummy-alice")
 
-  // Load current game state when component mounts
-  useEffect(() => {
-    loadCurrentGameState()
-  }, [])
   const [roomId, setRoomId] = useState<string>(SIMULATOR_ROOM_ID)
   const [isForceInitializing, setIsForceInitializing] = useState(false)
   const [isInitializingRoom, setIsInitializingRoom] = useState(false)
@@ -97,6 +94,10 @@ export default function GameSimulator() {
     }
   }
 
+  // Load current game state when component mounts
+  useEffect(() => {
+    loadCurrentGameState()
+  }, [])
   const resetGame = async () => {
     try {
       const response = await fetch('/api/simulator', {
@@ -239,6 +240,7 @@ export default function GameSimulator() {
 
       newGameState.highestBet = {
         playerId: "dummy-alice",
+        betValue: Bets.SEVEN,
         value: 3,
         trump: false,
         timestamp: new Date()
@@ -427,6 +429,9 @@ export default function GameSimulator() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Game Events Panel */}
+      <GameEventsPanel roomId={roomId} className="w-full" />
     </div>
   )
 }
