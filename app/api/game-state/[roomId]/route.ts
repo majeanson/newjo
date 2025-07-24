@@ -1,32 +1,35 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getRoomGameState } from "@/app/actions/game-actions"
+import {
+  createSuccessResponse,
+  createErrorResponse,
+  getHttpStatusCode,
+  GameStateResponse
+} from "@/lib/api-types"
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ roomId: string }> }) {
   try {
     const { roomId } = await params
-    
-    console.log(`🎮 API: Getting game state for room ${roomId}`)
-    
+
     const gameState = await getRoomGameState(roomId)
-    
+
     if (gameState) {
-      console.log(`✅ API: Game state found for room ${roomId}, phase: ${gameState.phase}`)
-      return NextResponse.json({ 
-        success: true, 
-        gameState 
-      })
+      const responseData: GameStateResponse = {
+        gameState,
+        roomExists: true,
+        playerCount: Object.keys(gameState.players).length,
+        isPlayerInRoom: true // This would need user context to determine properly
+      }
+
+      const response = createSuccessResponse(responseData, "Game state retrieved successfully")
+      return NextResponse.json(response)
     } else {
-      console.log(`❌ API: No game state found for room ${roomId}`)
-      return NextResponse.json({ 
-        success: false, 
-        error: "Game state not found" 
-      }, { status: 404 })
+      const response = createErrorResponse("Game state not found", "NOT_FOUND")
+      return NextResponse.json(response, { status: getHttpStatusCode(response) })
     }
   } catch (error) {
-    console.error(`❌ API: Error getting game state for room:`, error)
-    return NextResponse.json({ 
-      success: false, 
-      error: "Failed to get game state" 
-    }, { status: 500 })
+    console.error("Error getting game state:", error)
+    const response = createErrorResponse("Failed to get game state", "INTERNAL_ERROR")
+    return NextResponse.json(response, { status: getHttpStatusCode(response) })
   }
 }

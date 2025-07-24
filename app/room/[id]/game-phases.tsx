@@ -65,6 +65,7 @@ export default function GamePhases({ roomId, gameState: initialGameState, curren
   const handleStartGame = async () => {
     try {
       const result = await forceAutoStartAction(roomId)
+      // Server actions use the old format, not the new API response format
       if (result.success && result.gameState) {
         handleGameStateUpdate(result.gameState)
       }

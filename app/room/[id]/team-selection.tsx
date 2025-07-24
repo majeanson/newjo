@@ -60,6 +60,7 @@ export default function TeamSelection({ roomId, gameState, currentUserId, onGame
         // Add fallback refresh for development environments where SSE might be unreliable
         setTimeout(() => {
           console.log('🔄 Team selection fallback: triggering refresh')
+          // Server actions use the old format, not the new API response format
           if (onGameStateUpdate && result.gameState) {
             onGameStateUpdate(result.gameState)
           }

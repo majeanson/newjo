@@ -99,9 +99,13 @@ export default function BettingPhase({ roomId, gameState, currentUserId, onGameS
       })
 
       const result = await response.json()
+      console.log('🔍 Betting API Response:', result)
 
-      if (result.success && result.gameState) {
-        onGameStateUpdate(result.gameState)
+      // Handle new standardized API response format
+      const gameState = result.success && result.data ? result.data.gameState : result.gameState
+
+      if (result.success && gameState) {
+        onGameStateUpdate(gameState)
 
         // Show success toast
         const betLabel = selectedBet === Bets.SKIP ? "Skip" : `${BetsNumericValue[selectedBet]} tricks`

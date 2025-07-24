@@ -82,11 +82,16 @@ export default function GameSimulator() {
       })
 
       const result = await response.json()
-      if (result.success && result.gameState) {
-        setGameState(result.gameState)
+      console.log('🔍 Simulator API Response:', result)
+
+      // Handle new standardized API response format
+      const gameState = result.success && result.data ? result.data.gameState : result.gameState
+
+      if (result.success && gameState) {
+        setGameState(gameState)
         // Set active player to current turn if available
-        if (result.gameState.currentTurn) {
-          setActivePlayer(result.gameState.currentTurn)
+        if (gameState.currentTurn) {
+          setActivePlayer(gameState.currentTurn)
         }
       }
     } catch (error) {
@@ -107,8 +112,13 @@ export default function GameSimulator() {
       })
 
       const result = await response.json()
-      if (result.success && result.gameState) {
-        setGameState(result.gameState)
+      console.log('🔍 Reset Game API Response:', result)
+
+      // Handle new standardized API response format
+      const gameState = result.success && result.data ? result.data.gameState : result.gameState
+
+      if (result.success && gameState) {
+        setGameState(gameState)
         setActivePlayer("dummy-alice")
       }
     } catch (error) {

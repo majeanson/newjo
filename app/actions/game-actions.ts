@@ -4,6 +4,7 @@
 import { getCurrentUser } from "./auth"
 import { prisma } from "@/lib/prisma"
 import { GameState, GamePhase, Card, Team, Player, Bet, Bets, CardColor } from "@/lib/game-types"
+import { validateGameState, safeObjectCast, isObject, isArray } from "@/lib/type-guards"
 
 // Internal event type for broadcasting (more flexible than the strict GameEvent type)
 interface InternalGameEvent {
@@ -35,12 +36,15 @@ interface RoomWithGameData {
   gameScores?: unknown
 }
 
-// Helper function to safely cast JSON to expected type
+// Helper function to safely cast JSON to expected type with validation
 function safeJsonCast<T>(value: unknown, fallback: T): T {
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    return value as T
-  }
-  return fallback
+  return safeObjectCast(value, (v): v is T => {
+    // Basic validation - check if it's an object for object types
+    if (typeof fallback === 'object' && fallback !== null) {
+      return isObject(v) || isArray(v)
+    }
+    return typeof v === typeof fallback
+  }, fallback)
 }
 
 // Broadcast game event to all players in room
@@ -135,7 +139,7 @@ export async function getRoomGameState(roomId: string): Promise<GameState | null
       }
     }
 
-    return {
+    const gameState = {
       phase: (roomData.gamePhase as GamePhase) || GamePhase.TEAM_SELECTION,
       round: roomData.currentRound || 1,
       currentTurn: roomData.currentTurn || '',
@@ -151,6 +155,15 @@ export async function getRoomGameState(roomId: string): Promise<GameState | null
       scores: safeJsonCast<Record<string, number>>(roomData.gameScores, {}),
       turnOrder
     }
+
+    // Validate the constructed game state
+    const validatedState = validateGameState(gameState)
+    if (!validatedState) {
+      console.error("Invalid game state constructed from database data")
+      return null
+    }
+
+    return validatedState
   } catch (error) {
     console.error("Failed to get room game state:", error)
     return null
@@ -329,16 +342,9 @@ export async function selectTeamAction(
     // Small delay to ensure database write is committed
     await new Promise(resolve => setTimeout(resolve, 50))
 
-    // Check SSE listener count before broadcasting
-    const { eventStore } = await import("@/lib/events")
-    const listenerCount = eventStore.getListenerCount(roomId)
-    console.log('🎯 Broadcasting teams_changed event for:', userId, 'SSE listeners:', listenerCount)
-
-    // Debug all listeners
-    eventStore.logAllListeners()
-
     // Broadcast granular team change event to all players
-    await broadcastGameEvent({
+    console.log('🎯 About to broadcast TEAMS_CHANGED event for room:', roomId, 'user:', userId)
+    const broadcastResult = await broadcastGameEvent({
       type: 'TEAMS_CHANGED',
       roomId,
       userId,
@@ -354,6 +360,7 @@ export async function selectTeamAction(
       },
       timestamp: new Date()
     })
+    console.log('🎯 TEAMS_CHANGED broadcast result:', broadcastResult)
 
     // If teams are now balanced and moved to betting, broadcast that too
     if (teamACount === 2 && teamBCount === 2) {
@@ -435,7 +442,6 @@ export async function forceInitializeGame(roomId: string): Promise<{ success: bo
       data: {
         gamePhase: gameState.phase,
         currentRound: 1,
-        currentTrick: 1,
         currentTurn: room.members[0].userId,
         dealerUserId: room.members[0].userId,
         starterUserId: room.members[0].userId,
@@ -764,14 +770,6 @@ export async function autoAssignTeamsAction(roomId: string): Promise<{ success: 
 
     // Small delay to ensure database write is committed
     await new Promise(resolve => setTimeout(resolve, 50))
-
-    // Check SSE listener count before broadcasting
-    const { eventStore } = await import("@/lib/events")
-    const listenerCount = eventStore.getListenerCount(roomId)
-    console.log('🎯 Broadcasting teams_changed event for auto-assign, SSE listeners:', listenerCount)
-
-    // Debug all listeners
-    eventStore.logAllListeners()
 
     // Broadcast granular team change event for auto-assignment
     await broadcastGameEvent({

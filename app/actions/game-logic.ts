@@ -279,14 +279,6 @@ export async function placeBetAction(
     // Small delay to ensure database write is committed
     await new Promise(resolve => setTimeout(resolve, 50))
 
-    // Check SSE listener count before broadcasting
-    const { eventStore } = await import("@/lib/events")
-    const listenerCount = eventStore.getListenerCount(roomId)
-    console.log('🎯 Broadcasting bet_placed event for:', userId, 'SSE listeners:', listenerCount)
-
-    // Debug all listeners
-    eventStore.logAllListeners()
-
     await broadcastGameEvent({
       type: 'BETS_CHANGED',
       roomId,
@@ -411,14 +403,6 @@ export async function playCardAction(
 
     // Small delay to ensure database write is committed
     await new Promise(resolve => setTimeout(resolve, 50))
-
-    // Check SSE listener count before broadcasting
-    const { eventStore } = await import("@/lib/events")
-    const listenerCount = eventStore.getListenerCount(roomId)
-    console.log('🎯 Broadcasting cards_changed event for:', userId, 'SSE listeners:', listenerCount)
-
-    // Debug all listeners
-    eventStore.logAllListeners()
 
     // Broadcast granular card change event
     await broadcastGameEvent({

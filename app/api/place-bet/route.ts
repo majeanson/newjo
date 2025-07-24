@@ -3,6 +3,12 @@ import { getCurrentUser } from "@/app/actions/auth"
 import { getRoomGameState, saveRoomGameState, broadcastGameEvent } from "@/app/actions/game-actions"
 import { placeBet, areAllBetsPlaced, getHighestBet, dealCards } from "@/lib/game-logic"
 import { GamePhase, Bets } from "@/lib/game-types"
+import {
+  createSuccessResponse,
+  createErrorResponse,
+  getHttpStatusCode,
+  GameActionResponse
+} from "@/lib/api-types"
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,22 +19,26 @@ export async function POST(request: NextRequest) {
     if (!userId) {
       const user = await getCurrentUser()
       if (!user) {
-        return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 })
+        const response = createErrorResponse("Not authenticated", "UNAUTHORIZED")
+        return NextResponse.json(response, { status: getHttpStatusCode(response) })
       }
       userId = user.id
     }
 
     const gameState = await getRoomGameState(roomId)
     if (!gameState) {
-      return NextResponse.json({ success: false, error: "Game not found" }, { status: 404 })
+      const response = createErrorResponse("Game not found", "NOT_FOUND")
+      return NextResponse.json(response, { status: getHttpStatusCode(response) })
     }
 
     if (gameState.phase !== GamePhase.BETS) {
-      return NextResponse.json({ success: false, error: "Not in betting phase" }, { status: 400 })
+      const response = createErrorResponse("Not in betting phase", "INVALID_PHASE")
+      return NextResponse.json(response, { status: getHttpStatusCode(response) })
     }
 
     if (gameState.currentTurn !== userId) {
-      return NextResponse.json({ success: false, error: "Not your turn" }, { status: 400 })
+      const response = createErrorResponse("Not your turn", "INVALID_TURN")
+      return NextResponse.json(response, { status: getHttpStatusCode(response) })
     }
 
     const newGameState = placeBet(gameState, userId, betValue, trump)
@@ -109,9 +119,19 @@ export async function POST(request: NextRequest) {
     // Note: No revalidatePath to prevent SSE connection closure
     // Real-time updates are handled via SSE events
 
-    return NextResponse.json({ success: true, gameState: newGameState })
+    const responseData: GameActionResponse = {
+      gameState: newGameState,
+      actionType: 'BET_PLACED',
+      playerId: userId,
+      playerName: newGameState.players[userId]?.name || 'Unknown',
+      success: true
+    }
+
+    const response = createSuccessResponse(responseData, "Bet placed successfully")
+    return NextResponse.json(response)
   } catch (error) {
     console.error("Failed to place bet:", error)
-    return NextResponse.json({ success: false, error: "Failed to place bet" }, { status: 500 })
+    const response = createErrorResponse("Failed to place bet", "INTERNAL_ERROR")
+    return NextResponse.json(response, { status: getHttpStatusCode(response) })
   }
 }
