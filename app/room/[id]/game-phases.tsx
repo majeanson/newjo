@@ -16,9 +16,10 @@ interface GamePhasesProps {
   roomId: string
   gameState: GameState
   currentUserId: string
+  onRefreshNeeded?: () => void
 }
 
-export default function GamePhases({ roomId, gameState: initialGameState, currentUserId }: GamePhasesProps) {
+export default function GamePhases({ roomId, gameState: initialGameState, currentUserId, onRefreshNeeded }: GamePhasesProps) {
   // Local state for immediate UI updates
   const [localGameState, setLocalGameState] = useState<GameState | null>(null)
 
@@ -48,11 +49,19 @@ export default function GamePhases({ roomId, gameState: initialGameState, curren
     })
     setLocalGameState(newGameState)
 
-    // Clear local state after 3 seconds as fallback (SSE should update before then)
+    // Clear local state after 1 second as fallback (SSE should update before then)
     setTimeout(() => {
-      console.log('🕐 Clearing local game state after 3 seconds')
+      console.log('🕐 Clearing local game state after 1 second')
       setLocalGameState(null)
-    }, 3000)
+
+      // If SSE isn't working, force a refresh as fallback
+      if (onRefreshNeeded) {
+        console.log('🔄 Triggering fallback refresh since SSE may not be working')
+        setTimeout(() => {
+          onRefreshNeeded()
+        }, 200)
+      }
+    }, 1000)
   }
 
   // Handle start game for waiting phase

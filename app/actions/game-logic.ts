@@ -1,6 +1,6 @@
 "use server"
 
-import { revalidatePath } from "next/cache"
+
 import { getCurrentUser } from "./auth"
 import { prisma } from "@/lib/prisma"
 import { GameState, GamePhase, Card, Team, Player, Bet, Bets } from "@/lib/game-types"
@@ -14,19 +14,8 @@ function safeJsonCast<T>(value: any, fallback: T): T {
   return fallback
 }
 
-// Broadcast game event to all players in room
-async function broadcastGameEvent(event: { type: string; roomId: string; userId?: string; data?: any; timestamp: Date }): Promise<void> {
-  const { eventStore } = await import("@/lib/events")
-  eventStore.emit({
-    type: event.type as any,
-    roomId: event.roomId,
-    ...(event.userId && { playerId: event.userId }),
-    ...(event.data && event.data)
-  })
-
-  revalidatePath(`/room/${event.roomId}`)
-  console.log('Game Event:', event)
-}
+// Import the proper broadcastGameEvent function from game-actions
+import { broadcastGameEvent, getRoomGameState, saveRoomGameState } from "./game-actions"
 
 // Type for round result
 interface RoundResult {
@@ -173,7 +162,7 @@ export async function selectPlayerTeam(
       return { success: false, error: "Not authenticated" }
     }
 
-    const gameState = await getGameState(roomId)
+    const gameState = await getRoomGameState(roomId)
     if (!gameState) {
       return { success: false, error: "Game not found" }
     }
@@ -199,7 +188,7 @@ export async function selectPlayerTeam(
       newGameState.phase = GamePhase.BETS
     }
 
-    await saveGameState(roomId, newGameState)
+    await saveRoomGameState(roomId, newGameState)
 
     // Broadcast team selection event
     await broadcastGameEvent({
@@ -230,7 +219,8 @@ export async function selectPlayerTeam(
       })
     }
 
-    revalidatePath(`/room/${roomId}`)
+    // Note: Removed revalidatePath to prevent SSE connection closure
+    // Real-time updates are handled via SSE events
 
     return { success: true, gameState: newGameState }
   } catch (error) {
@@ -259,7 +249,7 @@ export async function placeBetAction(
       userId = user.id
     }
 
-    const gameState = await getGameState(roomId)
+    const gameState = await getRoomGameState(roomId)
     if (!gameState) {
       return { success: false, error: "Game not found" }
     }
@@ -296,7 +286,7 @@ export async function placeBetAction(
       gameStateWithCards.phase = GamePhase.CARDS
 
       // Return the game state with cards dealt
-      await saveGameState(roomId, gameStateWithCards)
+      await saveRoomGameState(roomId, gameStateWithCards)
 
       // Small delay to ensure database write is committed
       await new Promise(resolve => setTimeout(resolve, 50))
@@ -318,17 +308,24 @@ export async function placeBetAction(
       })
       console.log('✅ betting_complete event broadcasted')
 
-      revalidatePath(`/room/${roomId}`)
+      // Note: Removed revalidatePath to prevent SSE connection closure
+      // Real-time updates are handled via SSE events
       return { success: true, gameState: gameStateWithCards }
     }
 
-    await saveGameState(roomId, newGameState)
+    await saveRoomGameState(roomId, newGameState)
 
     // Small delay to ensure database write is committed
     await new Promise(resolve => setTimeout(resolve, 50))
 
-    // Broadcast that a bet was placed
-    console.log('🎯 Broadcasting bet_placed event for:', userId)
+    // Check SSE listener count before broadcasting
+    const { eventStore } = await import("@/lib/events")
+    const listenerCount = eventStore.getListenerCount(roomId)
+    console.log('🎯 Broadcasting bet_placed event for:', userId, 'SSE listeners:', listenerCount)
+
+    // Debug all listeners
+    eventStore.logAllListeners()
+
     await broadcastGameEvent({
       type: 'BET_PLACED',
       roomId,
@@ -346,7 +343,8 @@ export async function placeBetAction(
     })
     console.log('✅ bet_placed event broadcasted')
 
-    revalidatePath(`/room/${roomId}`)
+    // Note: Removed revalidatePath to prevent SSE connection closure
+    // Real-time updates are handled via SSE events
 
     return { success: true, gameState: newGameState }
   } catch (error) {
@@ -366,7 +364,7 @@ export async function setPlayerReady(
       return { success: false, error: "Not authenticated" }
     }
 
-    const gameState = await getGameState(roomId)
+    const gameState = await getRoomGameState(roomId)
     if (!gameState) {
       return { success: false, error: "Game not found" }
     }
@@ -382,7 +380,7 @@ export async function setPlayerReady(
       }
     }
 
-    await saveGameState(roomId, newGameState)
+    await saveRoomGameState(roomId, newGameState)
 
     // Broadcast ready state change event
     await broadcastGameEvent({
@@ -397,7 +395,8 @@ export async function setPlayerReady(
       timestamp: new Date()
     })
 
-    revalidatePath(`/room/${roomId}`)
+    // Note: Removed revalidatePath to prevent SSE connection closure
+    // Real-time updates are handled via SSE events
 
     return { success: true, gameState: newGameState }
   } catch (error) {
@@ -423,7 +422,7 @@ export async function playCardAction(
       userId = user.id
     }
 
-    const gameState = await getGameState(roomId)
+    const gameState = await getRoomGameState(roomId)
     if (!gameState) {
       return { success: false, error: "Game not found" }
     }
@@ -511,7 +510,9 @@ export async function playCardAction(
     }
 
     await saveGameState(roomId, newGameState)
-    revalidatePath(`/room/${roomId}`)
+
+    // Note: Removed revalidatePath to prevent SSE connection closure
+    // Real-time updates are handled via SSE events
 
     return { success: true, gameState: newGameState }
   } catch (error) {
@@ -598,7 +599,8 @@ export async function processRoundScoring(
       timestamp: new Date()
     })
 
-    revalidatePath(`/room/${roomId}`)
+    // Note: Removed revalidatePath to prevent SSE connection closure
+    // Real-time updates are handled via SSE events
 
     return {
       success: true,

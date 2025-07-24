@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Coins, Crown, Clock, X } from "lucide-react"
 import { GameState, Team, Bets, BetsNumericValue, Bet } from "@/lib/game-types"
-import { placeBetAction } from "@/app/actions/game-logic"
+// Using API route instead of Server Action to prevent SSE connection closure
 import { useToast } from "@/hooks/use-toast"
 
 interface BettingPhaseProps {
@@ -15,9 +15,10 @@ interface BettingPhaseProps {
   gameState: GameState
   currentUserId: string
   onGameStateUpdate: (newGameState: GameState) => void
+  onRefreshNeeded?: () => void
 }
 
-export default function BettingPhase({ roomId, gameState, currentUserId, onGameStateUpdate }: BettingPhaseProps) {
+export default function BettingPhase({ roomId, gameState, currentUserId, onGameStateUpdate, onRefreshNeeded }: BettingPhaseProps) {
   const [selectedBet, setSelectedBet] = useState<Bets | null>(null)
   const [isTrump, setIsTrump] = useState(true)
   const [isPlacing, setIsPlacing] = useState(false)
@@ -42,15 +43,8 @@ export default function BettingPhase({ roomId, gameState, currentUserId, onGameS
     })
   }, [gameState, currentUserId])
 
-  // Debug logging for betting phase
-  console.log('🎯 Betting Phase Render:', {
-    currentTurn: gameState.currentTurn,
-    currentUserId,
-    isMyTurn,
-    playerBet: !!playerBet,
-    allBetsCount: allBets.length,
-    totalPlayers: gameState.turnOrder.length
-  })
+  // Note: Removed automatic polling that was interfering with SSE connections
+  // SSE should handle real-time updates, fallback is only for emergencies
 
   // Track recent bet placements for visual feedback
   useEffect(() => {
@@ -69,11 +63,27 @@ export default function BettingPhase({ roomId, gameState, currentUserId, onGameS
   const handlePlaceBet = async () => {
     if (isPlacing || !isMyTurn || !selectedBet) return
 
+    // Debug: About to place bet
+    console.log('🎯 About to place bet for user:', currentUserId)
+
     setIsPlacing(true)
     setError(null)
 
     try {
-      const result = await placeBetAction(roomId, selectedBet, isTrump, currentUserId)
+      const response = await fetch('/api/place-bet', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          roomId,
+          betValue: selectedBet,
+          trump: isTrump,
+          playerId: currentUserId
+        })
+      })
+
+      const result = await response.json()
 
       if (result.success && result.gameState) {
         onGameStateUpdate(result.gameState)

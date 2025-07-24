@@ -19,6 +19,9 @@ export function useGameState({ roomId, initialGameState, onGameEvent }: UseGameS
   const [gameState, setGameState] = useState<GameState | null>(initialGameState || null)
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [reconnectAttempts, setReconnectAttempts] = useState(0)
+  const [lastRefreshTime, setLastRefreshTime] = useState<number>(Date.now())
+  const [lastPolledState, setLastPolledState] = useState<string | null>(null)
 
   // Use ref to avoid recreating SSE connection when onGameEvent changes
   const onGameEventRef = useRef(onGameEvent)
@@ -57,9 +60,22 @@ export function useGameState({ roomId, initialGameState, onGameEvent }: UseGameS
     }
   }, [roomId])
 
+  // Manual reconnect function
+  const reconnect = useCallback(() => {
+    console.log('🔄 Manual reconnect triggered')
+    setIsConnected(false)
+    setError('Reconnecting...')
+    setReconnectAttempts(0) // Reset attempts for manual reconnect
+    // The useEffect will handle the actual reconnection
+  }, [])
+
   // Connect to Server-Sent Events for real-time updates
   useEffect(() => {
-    if (!roomId) return
+    console.log('🎮 useGameState useEffect triggered for room:', roomId)
+    if (!roomId) {
+      console.log('❌ No roomId provided, skipping SSE connection')
+      return
+    }
 
     let eventSource: EventSource | null = null
     let reconnectTimeout: NodeJS.Timeout | null = null
@@ -67,12 +83,16 @@ export function useGameState({ roomId, initialGameState, onGameEvent }: UseGameS
     const connect = () => {
       try {
         console.log('🔌 Connecting to SSE for room:', roomId)
+        console.log('🔌 SSE URL:', `/api/game-events/${roomId}`)
         eventSource = new EventSource(`/api/game-events/${roomId}`)
+        console.log('🔌 EventSource created:', eventSource)
 
         eventSource.onopen = () => {
-          console.log('✅ SSE connected successfully')
+          console.log('✅ SSE connected successfully for room:', roomId)
+          console.log('✅ SSE readyState:', eventSource.readyState)
           setIsConnected(true)
           setError(null)
+          setReconnectAttempts(0) // Reset attempts on successful connection
         }
 
         eventSource.onmessage = (event) => {
@@ -94,7 +114,7 @@ export function useGameState({ roomId, initialGameState, onGameEvent }: UseGameS
             console.log('🎮 Game event received:', data.type, data)
 
             // Only refresh on specific game events that change state
-            const stateChangingEvents = ['BET_PLACED', 'BETTING_COMPLETE', 'TEAM_SELECTED', 'GAME_RESET']
+            const stateChangingEvents = ['BET_PLACED', 'BETTING_COMPLETE', 'BETTING_PHASE_STARTED', 'TEAM_SELECTED', 'GAME_RESET']
 
             if (stateChangingEvents.includes(data.type)) {
               console.log(`🔄 State-changing event received (${data.type}), refreshing game state`)
@@ -118,21 +138,30 @@ export function useGameState({ roomId, initialGameState, onGameEvent }: UseGameS
 
         eventSource.onerror = (error) => {
           console.error('❌ SSE connection error:', error)
+          console.error('❌ SSE readyState:', eventSource?.readyState)
+          console.error('❌ SSE url:', eventSource?.url)
+
           setIsConnected(false)
           setError('Connection lost')
 
           // Close the connection and attempt reconnect after delay
           if (eventSource) {
+            console.log('🔌 Closing failed SSE connection')
             eventSource.close()
           }
 
-          // Only reconnect if not in development hot reload
-          if (!reconnectTimeout && process.env.NODE_ENV === 'production') {
+          // Aggressive reconnection for development
+          if (!reconnectTimeout && reconnectAttempts < 20) {
+            setReconnectAttempts(prev => prev + 1)
+            const delay = 500 // Fast reconnection in development
             reconnectTimeout = setTimeout(() => {
-              console.log('🔄 Attempting SSE reconnect...')
+              console.log(`🔄 Attempting SSE reconnect... (attempt ${reconnectAttempts + 1}/20)`)
               reconnectTimeout = null
               connect()
-            }, 3000)
+            }, delay)
+          } else if (reconnectAttempts >= 20) {
+            console.error('❌ Max SSE reconnect attempts reached, using fallback only')
+            setError('Using fallback refresh mode')
           }
         }
       } catch (error) {
@@ -195,6 +224,7 @@ export function useGameState({ roomId, initialGameState, onGameEvent }: UseGameS
     isConnected,
     error,
     refreshGameState,
-    sendGameEvent
+    sendGameEvent,
+    reconnect
   }
 }

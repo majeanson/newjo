@@ -1,6 +1,6 @@
 "use server"
 
-import { revalidatePath } from "next/cache"
+
 import { getCurrentUser } from "./auth"
 import { prisma } from "@/lib/prisma"
 import { GameState, GamePhase, Card, Team, Player, Bet, Bets, CardColor } from "@/lib/game-types"
@@ -44,21 +44,24 @@ function safeJsonCast<T>(value: unknown, fallback: T): T {
 }
 
 // Broadcast game event to all players in room
-async function broadcastGameEvent(event: InternalGameEvent): Promise<void> {
+export async function broadcastGameEvent(event: InternalGameEvent): Promise<void> {
   // Store event in database for persistence
   await storeGameEvent(event)
 
   // Emit to event store for real-time SSE updates
   const { eventStore } = await import("@/lib/events")
-  eventStore.emit({
+  const sseEvent = {
     type: event.type as any, // Preserve the actual event type
     roomId: event.roomId,
     ...(event.userId && { playerId: event.userId }),
     ...(event.data && event.data)
-  })
+  }
 
-  // Also revalidate path for page refreshes
-  revalidatePath(`/room/${event.roomId}`)
+  console.log('📡 Broadcasting to SSE:', event.type, 'for room:', event.roomId)
+  eventStore.emit(sseEvent)
+
+  // Note: Removed revalidatePath to prevent SSE connection closure
+  // Real-time updates are handled via SSE, not page revalidation
 
   // Log for debugging
   console.log('Game Event:', event)
@@ -155,7 +158,7 @@ export async function getRoomGameState(roomId: string): Promise<GameState | null
 }
 
 // Save game state to room
-async function saveRoomGameState(roomId: string, gameState: GameState): Promise<void> {
+export async function saveRoomGameState(roomId: string, gameState: GameState): Promise<void> {
   try {
     // Extract team assignments
     const playerTeams: Record<string, string> = {}
@@ -195,13 +198,8 @@ async function saveRoomGameState(roomId: string, gameState: GameState): Promise<
       }
     })
 
-    // Broadcast game state update
-    await broadcastGameEvent({
-      type: 'GAME_STATE_UPDATED',
-      roomId,
-      data: { phase: gameState.phase, round: gameState.round },
-      timestamp: new Date()
-    })
+    // Note: Specific actions will broadcast their own events
+    // Removed automatic GAME_STATE_UPDATED to prevent event spam
   } catch (error) {
     console.error("Failed to save room game state:", error)
     throw error
@@ -327,6 +325,11 @@ export async function selectTeamAction(
     }
 
     await saveRoomGameState(roomId, gameState)
+
+    // Check SSE listener count before broadcasting
+    const { eventStore } = await import("@/lib/events")
+    const listenerCount = eventStore.getListenerCount(roomId)
+    console.log('🎯 Broadcasting team_selected event for:', userId, 'SSE listeners:', listenerCount)
 
     // Broadcast team selection event to all players
     await broadcastGameEvent({

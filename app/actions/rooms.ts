@@ -2,7 +2,7 @@
 import { redirect } from "next/navigation"
 import { getCurrentUser } from "./auth"
 import { createRoom as dbCreateRoom, getRooms as dbGetRooms, joinRoom as dbJoinRoom } from "@/lib/database"
-import { eventStore } from "@/lib/events"
+
 import { initializeGame } from "./game-actions"
 
 export async function createRoom(prevState: { error?: string } | null, formData: FormData) {
@@ -40,9 +40,15 @@ export async function createRoom(prevState: { error?: string } | null, formData:
     }
 
     // Emit real-time event for room creation
-    eventStore.emit({
+    const { broadcastGameEvent } = await import("./game-actions")
+    await broadcastGameEvent({
       type: "ROOM_UPDATED",
-      roomId: room.id
+      roomId: room.id,
+      data: {
+        roomName: room.name,
+        created: true
+      },
+      timestamp: new Date()
     })
 
     redirect(`/room/${room.id}`)
@@ -84,11 +90,15 @@ export async function joinRoom(prevState: { error?: string } | null,  formData: 
       await updateGamePlayersAction(roomId)
 
       // Emit real-time event
-      eventStore.emit({
+      const { broadcastGameEvent } = await import("./game-actions")
+      await broadcastGameEvent({
         type: "PLAYER_JOINED",
         roomId,
-        playerName: user.name,
-        playerId: user.id
+        data: {
+          playerName: user.name,
+          playerId: user.id
+        },
+        timestamp: new Date()
       })
 
       console.log(`🎯 Redirecting to /room/${roomId}`)

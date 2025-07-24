@@ -45,7 +45,7 @@ export default function GameWrapper({ roomId, currentUserId, initialGameState, p
   const { toast } = useToast()
 
   // Use game state hook for live updates
-  const { gameState: liveGameState, isConnected, sendGameEvent, refreshGameState } = useGameState({
+  const { gameState: liveGameState, isConnected, sendGameEvent, refreshGameState, reconnect } = useGameState({
     roomId,
     initialGameState,
     onGameEvent: (event) => {
@@ -327,6 +327,30 @@ export default function GameWrapper({ roomId, currentUserId, initialGameState, p
                 🔄 Refresh
               </Button>
               <Button
+                onClick={() => {
+                  console.log('🧪 Testing SSE with test event')
+                  sendGameEvent('TEST_EVENT', { message: 'SSE test from client', timestamp: Date.now() })
+                }}
+                variant="outline"
+                size="sm"
+                className="text-purple-600 border-purple-200 hover:bg-purple-50"
+              >
+                🧪 Test SSE
+              </Button>
+              {!isConnected && (
+                <Button
+                  onClick={() => {
+                    console.log('🔌 Manual reconnect triggered')
+                    reconnect()
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                >
+                  🔌 Reconnect
+                </Button>
+              )}
+              <Button
                 onClick={handleResetGame}
                 disabled={isResetting}
                 variant="outline"
@@ -417,6 +441,7 @@ export default function GameWrapper({ roomId, currentUserId, initialGameState, p
               roomId={roomId}
               gameState={gameState}
               currentUserId={currentUserId}
+              onRefreshNeeded={refreshGameState}
             />
           ) : (
             <GameInitializer

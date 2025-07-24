@@ -152,6 +152,19 @@ class EventStore {
   getListenerCount(roomId: string): number {
     return this.listeners.get(roomId)?.size || 0
   }
+
+  // Debug method to log all active rooms and their listener counts
+  logAllListeners(): void {
+    console.log('📊 SSE Listener Status:')
+    if (this.listeners.size === 0) {
+      console.log('  No active rooms')
+      return
+    }
+
+    for (const [roomId, listeners] of this.listeners.entries()) {
+      console.log(`  Room ${roomId}: ${listeners.size} listeners`)
+    }
+  }
 }
 
 export const eventStore = new EventStore()
