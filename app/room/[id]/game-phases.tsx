@@ -41,27 +41,24 @@ export default function GamePhases({ roomId, gameState: initialGameState, curren
   const isMyTurn = gameState.currentTurn === currentUserId
 
   const handleGameStateUpdate = (newGameState: GameState) => {
-    // Update local state immediately for instant UI feedback
+    // For betting, we now use granular SSE updates instead of local state
+    // This is only used for non-betting actions that still need local state
     console.log('🎮 Game state updated locally in game-phases:', {
       phase: newGameState.phase,
       currentTurn: newGameState.currentTurn,
       betsCount: Object.keys(newGameState.bets || {}).length
     })
-    setLocalGameState(newGameState)
 
-    // Clear local state after 1 second as fallback (SSE should update before then)
-    setTimeout(() => {
-      console.log('🕐 Clearing local game state after 1 second')
-      setLocalGameState(null)
+    // Don't use local state for any actions - SSE handles all updates now
+    console.log('🎯 All phases now use granular SSE updates instead of local state')
 
-      // If SSE isn't working, force a refresh as fallback
-      if (onRefreshNeeded) {
-        console.log('🔄 Triggering fallback refresh since SSE may not be working')
-        setTimeout(() => {
-          onRefreshNeeded()
-        }, 200)
-      }
-    }, 1000)
+    // Optional: Add a small fallback delay for non-SSE environments
+    if (onRefreshNeeded) {
+      setTimeout(() => {
+        console.log('🔄 Fallback refresh triggered after action')
+        onRefreshNeeded()
+      }, 1500) // Longer delay since SSE should handle most updates
+    }
   }
 
   // Handle start game for waiting phase

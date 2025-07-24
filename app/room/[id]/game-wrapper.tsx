@@ -58,6 +58,7 @@ export default function GameWrapper({ roomId, currentUserId, initialGameState, p
       if (event.data?.playerId && event.data.playerId !== currentUserId) {
         switch (event.type) {
           case 'TEAM_SELECTED':
+          case 'TEAMS_CHANGED':
             if (event.data.autoAssigned) {
               toast({
                 title: "🎯 Teams Auto-Assigned",
@@ -100,6 +101,7 @@ export default function GameWrapper({ roomId, currentUserId, initialGameState, p
             })
             break
           case 'BET_PLACED':
+          case 'BETS_CHANGED':
             const betDisplay = event.data.betValue === 'SKIP' ? 'Skip' : `${event.data.betValue} tricks`
             const trumpText = event.data.trump ? ' (Trump)' : (event.data.trump === false ? ' (No Trump)' : '')
             const remainingText = event.data.betsRemaining > 0 ? ` • ${event.data.betsRemaining} left` : ''
@@ -116,6 +118,13 @@ export default function GameWrapper({ roomId, currentUserId, initialGameState, p
               description: `Highest bet: ${event.data.highestBet} tricks. Starting card phase...`,
               variant: "default",
               duration: 5000,
+            })
+            break
+          case 'CARDS_CHANGED':
+            toast({
+              title: "🃏 Card Played",
+              description: `${event.data.playerName} played ${event.data.card}`,
+              variant: "default",
             })
             break
           case 'GAME_STATE_UPDATED':
@@ -328,14 +337,18 @@ export default function GameWrapper({ roomId, currentUserId, initialGameState, p
               </Button>
               <Button
                 onClick={() => {
-                  console.log('🧪 Testing SSE with test event')
-                  sendGameEvent('TEST_EVENT', { message: 'SSE test from client', timestamp: Date.now() })
+                  console.log('🧪 Testing BETS_CHANGED event')
+                  sendGameEvent('BETS_CHANGED', {
+                    bets: { testPlayer: { value: 5, trump: true } },
+                    currentTurn: 'testPlayer',
+                    phase: 'bets'
+                  })
                 }}
                 variant="outline"
                 size="sm"
                 className="text-purple-600 border-purple-200 hover:bg-purple-50"
               >
-                🧪 Test SSE
+                🧪 Test Bets
               </Button>
               {!isConnected && (
                 <Button

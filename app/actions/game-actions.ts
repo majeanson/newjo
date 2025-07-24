@@ -326,24 +326,31 @@ export async function selectTeamAction(
 
     await saveRoomGameState(roomId, gameState)
 
+    // Small delay to ensure database write is committed
+    await new Promise(resolve => setTimeout(resolve, 50))
+
     // Check SSE listener count before broadcasting
     const { eventStore } = await import("@/lib/events")
     const listenerCount = eventStore.getListenerCount(roomId)
-    console.log('🎯 Broadcasting team_selected event for:', userId, 'SSE listeners:', listenerCount)
+    console.log('🎯 Broadcasting teams_changed event for:', userId, 'SSE listeners:', listenerCount)
 
-    // Broadcast team selection event to all players
+    // Debug all listeners
+    eventStore.logAllListeners()
+
+    // Broadcast granular team change event to all players
     await broadcastGameEvent({
-      type: 'TEAM_SELECTED',
+      type: 'TEAMS_CHANGED',
       roomId,
+      userId,
       data: {
+        players: gameState.players,           // Only the players object
+        phase: gameState.phase,              // Only the phase
+        teamsBalanced: teamACount === 2 && teamBCount === 2,
         playerId: userId,
         playerName: gameState.players[userId]?.name,
         team,
-        phase: gameState.phase,
         teamACount,
-        teamBCount,
-        teamsBalanced: teamACount === 2 && teamBCount === 2,
-        autoMovedToBetting: teamACount === 2 && teamBCount === 2
+        teamBCount
       },
       timestamp: new Date()
     })
@@ -755,15 +762,26 @@ export async function autoAssignTeamsAction(roomId: string): Promise<{ success: 
     // Stay in team selection to show assignments, don't move to betting yet
     await saveRoomGameState(roomId, gameState)
 
-    // Broadcast detailed team assignment event
+    // Small delay to ensure database write is committed
+    await new Promise(resolve => setTimeout(resolve, 50))
+
+    // Check SSE listener count before broadcasting
+    const { eventStore } = await import("@/lib/events")
+    const listenerCount = eventStore.getListenerCount(roomId)
+    console.log('🎯 Broadcasting teams_changed event for auto-assign, SSE listeners:', listenerCount)
+
+    // Debug all listeners
+    eventStore.logAllListeners()
+
+    // Broadcast granular team change event for auto-assignment
     await broadcastGameEvent({
-      type: 'TEAM_SELECTED',
+      type: 'TEAMS_CHANGED',
       roomId,
       data: {
-        phase: gameState.phase,
-        players: playerCount,
-        autoAssigned: true,
+        players: gameState.players,           // Only the players object
+        phase: gameState.phase,              // Only the phase
         teamsBalanced: true,
+        autoAssigned: true,
         teamAssignments: Object.values(gameState.players).map(player => ({
           playerId: player.id,
           playerName: player.name,
@@ -815,23 +833,34 @@ export async function forceAutoStartAction(roomId: string): Promise<{ success: b
 
     await saveRoomGameState(roomId, gameState)
 
-    // Broadcast team assignments first
+    // Small delay to ensure database write is committed
+    await new Promise(resolve => setTimeout(resolve, 50))
+
+    // Check SSE listener count before broadcasting
+    const { eventStore } = await import("@/lib/events")
+    const listenerCount = eventStore.getListenerCount(roomId)
+    console.log('🎯 Broadcasting teams_changed event for force start, SSE listeners:', listenerCount)
+
+    // Debug all listeners
+    eventStore.logAllListeners()
+
+    // Broadcast granular team change event for force start
     await broadcastGameEvent({
-      type: 'TEAM_SELECTED',
+      type: 'TEAMS_CHANGED',
       roomId,
       data: {
-        phase: gameState.phase,
-        players: playerCount,
-        autoAssigned: true,
+        players: gameState.players,           // Only the players object
+        phase: gameState.phase,              // Only the phase (now 'bets')
         teamsBalanced: true,
+        autoAssigned: true,
+        forceStarted: true,
         teamAssignments: Object.values(gameState.players).map(player => ({
           playerId: player.id,
           playerName: player.name,
           team: player.team,
           seatPosition: player.seatPosition
         })),
-        seatPattern: 'A1, B2, A3, B4',
-        forceStarted: true
+        seatPattern: 'A1, B2, A3, B4'
       },
       timestamp: new Date()
     })

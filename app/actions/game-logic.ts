@@ -110,46 +110,7 @@ export async function getGameState(roomId: string): Promise<GameState | null> {
   }
 }
 
-// Save game state to database
-async function saveGameState(roomId: string, gameState: GameState): Promise<void> {
-  // Extract team assignments
-  const playerTeams: Record<string, string> = {}
-  const playerSeats: Record<string, number> = {}
-  const playerReady: Record<string, boolean> = {}
 
-  Object.values(gameState.players).forEach((player: Player) => {
-    if (player.team) playerTeams[player.id] = player.team
-    if (player.seatPosition !== undefined) playerSeats[player.id] = player.seatPosition
-    playerReady[player.id] = player.isReady
-  })
-
-  await prisma.room.update({
-    where: { id: roomId },
-    data: {
-      gamePhase: gameState.phase,
-      currentRound: gameState.round,
-      currentTurn: gameState.currentTurn || null,
-      dealerUserId: gameState.dealer || null,
-      starterUserId: gameState.starter || null,
-      trumpColor: gameState.trump || null,
-
-      // JSON fields
-      playerHands: gameState.playerHands as object,
-      playedCards: gameState.playedCards as object,
-      playerBets: gameState.bets as object,
-      playerTeams: playerTeams as object,
-      playerSeats: playerSeats as object,
-      playerReady: playerReady as object,
-      tricksWon: gameState.wonTricks as object,
-      gameScores: gameState.scores as object,
-
-      // Highest bet
-      highestBetUserId: gameState.highestBet?.playerId || null,
-      highestBetValue: gameState.highestBet?.value || null,
-      highestBetTrump: gameState.highestBet?.trump || null,
-    }
-  })
-}
 
 // Team selection action
 export async function selectPlayerTeam(
@@ -327,17 +288,13 @@ export async function placeBetAction(
     eventStore.logAllListeners()
 
     await broadcastGameEvent({
-      type: 'BET_PLACED',
+      type: 'BETS_CHANGED',
       roomId,
       userId,
       data: {
-        betValue,
-        trump,
-        playerName: newGameState.players[userId]?.name,
-        betsRemaining: newGameState.turnOrder.length - Object.keys(newGameState.bets).length,
-        nextPlayer: newGameState.players[newGameState.currentTurn]?.name,
-        totalBets: Object.keys(newGameState.bets).length,
-        totalPlayers: newGameState.turnOrder.length
+        bets: newGameState.bets,           // Only the bets object
+        currentTurn: newGameState.currentTurn,  // Only the current turn
+        phase: newGameState.phase          // Only the phase (in case it changes)
       },
       timestamp: new Date()
     })
@@ -449,13 +406,30 @@ export async function playCardAction(
 
     let newGameState = playCard(gameState, userId, card)
 
-    // Broadcast card played event
-    console.log('🎯 Broadcasting card_played event for:', userId)
+    // Save the state immediately for the card play
+    await saveRoomGameState(roomId, newGameState)
+
+    // Small delay to ensure database write is committed
+    await new Promise(resolve => setTimeout(resolve, 50))
+
+    // Check SSE listener count before broadcasting
+    const { eventStore } = await import("@/lib/events")
+    const listenerCount = eventStore.getListenerCount(roomId)
+    console.log('🎯 Broadcasting cards_changed event for:', userId, 'SSE listeners:', listenerCount)
+
+    // Debug all listeners
+    eventStore.logAllListeners()
+
+    // Broadcast granular card change event
     await broadcastGameEvent({
-      type: 'CARD_PLAYED',
+      type: 'CARDS_CHANGED',
       roomId,
       userId,
       data: {
+        playedCards: newGameState.playedCards,    // Only the played cards
+        currentTurn: newGameState.currentTurn,    // Only the current turn
+        phase: newGameState.phase,               // Only the phase
+        playerHands: newGameState.playerHands,   // Updated player hands
         card: `${card.color}-${card.value}`,
         playerName: newGameState.players[userId]?.name,
         cardsInTrick: Object.keys(newGameState.playedCards).length
@@ -470,7 +444,23 @@ export async function playCardAction(
       // Process trick win after a short delay for UI
       newGameState = processTrickWin(newGameState)
 
-      // Broadcast trick complete event
+      // Broadcast granular trick change event
+      await broadcastGameEvent({
+        type: 'TRICK_CHANGED',
+        roomId,
+        userId,
+        data: {
+          playedCards: newGameState.playedCards,    // Cleared played cards
+          currentTurn: newGameState.currentTurn,    // Winner starts next trick
+          phase: newGameState.phase,               // Might change to TRICK_SCORING
+          wonTricks: newGameState.wonTricks,       // Updated trick scores
+          winner: newGameState.currentTurn,
+          winnerName: newGameState.players[newGameState.currentTurn]?.name
+        },
+        timestamp: new Date()
+      })
+
+      // Also broadcast legacy TRICK_COMPLETE event for compatibility
       await broadcastGameEvent({
         type: 'TRICK_COMPLETE',
         roomId,
@@ -495,7 +485,24 @@ export async function playCardAction(
         newGameState = processRoundEnd(newGameState)
         console.log(`🎯 Round ${newGameState.round - 1} scored. Starting round ${newGameState.round}`)
 
-        // Broadcast round complete event
+        // Broadcast granular round change event
+        await broadcastGameEvent({
+          type: 'ROUND_CHANGED',
+          roomId,
+          userId,
+          data: {
+            phase: newGameState.phase,           // New phase (BETS)
+            round: newGameState.round,           // New round number
+            scores: newGameState.scores,         // Updated scores
+            bets: newGameState.bets,            // Cleared bets
+            currentTurn: newGameState.currentTurn, // New turn order
+            roundScores: roundScores,           // Scores from completed round
+            completedRound: newGameState.round - 1
+          },
+          timestamp: new Date()
+        })
+
+        // Also broadcast legacy ROUND_COMPLETE event for compatibility
         await broadcastGameEvent({
           type: 'ROUND_COMPLETE',
           roomId,
@@ -509,7 +516,8 @@ export async function playCardAction(
       }
     }
 
-    await saveGameState(roomId, newGameState)
+    // Save final state if there were additional changes (trick/round completion)
+    await saveRoomGameState(roomId, newGameState)
 
     // Note: Removed revalidatePath to prevent SSE connection closure
     // Real-time updates are handled via SSE events
@@ -583,7 +591,7 @@ export async function processRoundScoring(
     const roundResult = calculateRoundScores(gameState)
     const newGameState = processRoundEnd(gameState)
 
-    await saveGameState(roomId, newGameState)
+    await saveRoomGameState(roomId, newGameState)
 
     // Broadcast round scoring complete event
     await broadcastGameEvent({

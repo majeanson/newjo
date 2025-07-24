@@ -94,17 +94,13 @@ export async function POST(request: NextRequest) {
     eventStore.logAllListeners()
     
     await broadcastGameEvent({
-      type: 'BET_PLACED',
+      type: 'BETS_CHANGED',
       roomId,
       userId,
       data: {
-        betValue,
-        trump,
-        playerName: newGameState.players[userId]?.name,
-        betsRemaining: newGameState.turnOrder.length - Object.keys(newGameState.bets).length,
-        nextPlayer: newGameState.players[newGameState.currentTurn]?.name,
-        totalBets: Object.keys(newGameState.bets).length,
-        totalPlayers: newGameState.turnOrder.length
+        bets: newGameState.bets,           // Only the bets object
+        currentTurn: newGameState.currentTurn,  // Only the current turn
+        phase: newGameState.phase          // Only the phase (in case it changes)
       },
       timestamp: new Date()
     })

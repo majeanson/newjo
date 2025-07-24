@@ -20,8 +20,8 @@ export function useGameState({ roomId, initialGameState, onGameEvent }: UseGameS
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [reconnectAttempts, setReconnectAttempts] = useState(0)
-  const [lastRefreshTime, setLastRefreshTime] = useState<number>(Date.now())
-  const [lastPolledState, setLastPolledState] = useState<string | null>(null)
+  const [lastEventTime, setLastEventTime] = useState<number>(Date.now())
+  const [fallbackActive, setFallbackActive] = useState(false)
 
   // Use ref to avoid recreating SSE connection when onGameEvent changes
   const onGameEventRef = useRef(onGameEvent)
@@ -72,6 +72,8 @@ export function useGameState({ roomId, initialGameState, onGameEvent }: UseGameS
   // Connect to Server-Sent Events for real-time updates
   useEffect(() => {
     console.log('🎮 useGameState useEffect triggered for room:', roomId)
+    console.log('🎮 Current gameState phase:', gameState?.phase)
+    console.log('🎮 Current URL:', window.location.href)
     if (!roomId) {
       console.log('❌ No roomId provided, skipping SSE connection')
       return
@@ -84,8 +86,12 @@ export function useGameState({ roomId, initialGameState, onGameEvent }: UseGameS
       try {
         console.log('🔌 Connecting to SSE for room:', roomId)
         console.log('🔌 SSE URL:', `/api/game-events/${roomId}`)
+        console.log('🔌 Current location:', window.location.href)
+        console.log('🔌 NODE_ENV:', process.env.NODE_ENV)
         eventSource = new EventSource(`/api/game-events/${roomId}`)
         console.log('🔌 EventSource created:', eventSource)
+        console.log('🔌 EventSource readyState:', eventSource.readyState)
+        console.log('🔌 EventSource url:', eventSource.url)
 
         eventSource.onopen = () => {
           console.log('✅ SSE connected successfully for room:', roomId)
@@ -113,18 +119,103 @@ export function useGameState({ roomId, initialGameState, onGameEvent }: UseGameS
             // Handle specific event types
             console.log('🎮 Game event received:', data.type, data)
 
-            // Only refresh on specific game events that change state
-            const stateChangingEvents = ['BET_PLACED', 'BETTING_COMPLETE', 'BETTING_PHASE_STARTED', 'TEAM_SELECTED', 'GAME_RESET']
+            // Handle granular updates for specific events
+            if (data.type === 'BETS_CHANGED') {
+              console.log('🎯 Handling BETS_CHANGED event with granular update')
+              if (gameState && data) {
+                const updatedGameState = {
+                  ...gameState,
+                  bets: data.bets || gameState.bets,
+                  currentTurn: data.currentTurn || gameState.currentTurn,
+                  phase: data.phase || gameState.phase
+                }
+                console.log('🎯 Updated game state with new bets:', updatedGameState)
+                setGameState(updatedGameState)
+                return // Skip the full refresh
+              }
+            }
 
-            if (stateChangingEvents.includes(data.type)) {
-              console.log(`🔄 State-changing event received (${data.type}), refreshing game state`)
-              // Small delay to ensure database is updated before fetching
-              setTimeout(() => {
-                console.log(`🔄 Executing delayed refresh for event: ${data.type}`)
-                refreshGameState()
-              }, 200)
-            } else if (data.type !== 'CONNECTED' && data.type !== 'HEARTBEAT') {
-              console.log(`⏭️ Non-state-changing event: ${data.type}`)
+            // Handle granular updates for specific events
+            if (data.type === 'BETS_CHANGED') {
+              console.log('🎯 Granular betting update received, updating local state')
+              setGameState(prevState => {
+                if (!prevState) return prevState
+                return {
+                  ...prevState,
+                  bets: data.bets,
+                  currentTurn: data.currentTurn,
+                  phase: data.phase
+                }
+              })
+            } else if (data.type === 'TEAMS_CHANGED') {
+              console.log('🎯 Granular team update received, updating local state')
+              setGameState(prevState => {
+                if (!prevState) return prevState
+                return {
+                  ...prevState,
+                  players: data.players,
+                  phase: data.phase
+                }
+              })
+            } else if (data.type === 'CARDS_CHANGED') {
+              console.log('🎯 Granular card update received, updating local state')
+              console.log('🃏 Played cards from SSE:', data.playedCards)
+              console.log('🎯 Current turn from SSE:', data.currentTurn)
+              setGameState(prevState => {
+                if (!prevState) return prevState
+                const newState = {
+                  ...prevState,
+                  playedCards: data.playedCards,
+                  currentTurn: data.currentTurn,
+                  phase: data.phase,
+                  playerHands: data.playerHands || prevState.playerHands
+                }
+                console.log('🔄 Updated game state with played cards:', Object.keys(newState.playedCards))
+                return newState
+              })
+            } else if (data.type === 'TRICK_CHANGED') {
+              console.log('🎯 Granular trick update received, updating local state')
+              console.log('🏆 Trick winner from SSE:', data.winnerName)
+              console.log('🎯 Won tricks from SSE:', data.wonTricks)
+              setGameState(prevState => {
+                if (!prevState) return prevState
+                return {
+                  ...prevState,
+                  playedCards: data.playedCards,      // Cleared played cards
+                  currentTurn: data.currentTurn,      // Winner starts next trick
+                  phase: data.phase,                  // Might change to TRICK_SCORING
+                  wonTricks: data.wonTricks           // Updated trick scores
+                }
+              })
+            } else if (data.type === 'ROUND_CHANGED') {
+              console.log('🎯 Granular round update received, updating local state')
+              console.log('🎮 New round from SSE:', data.round)
+              console.log('🏆 Updated scores from SSE:', data.scores)
+              setGameState(prevState => {
+                if (!prevState) return prevState
+                return {
+                  ...prevState,
+                  phase: data.phase,                  // New phase (BETS)
+                  round: data.round,                  // New round number
+                  scores: data.scores,                // Updated scores
+                  bets: data.bets,                   // Cleared bets
+                  currentTurn: data.currentTurn       // New turn order
+                }
+              })
+            } else {
+              // Only refresh on specific game events that need full state refresh
+              const stateChangingEvents = ['BETTING_COMPLETE', 'BETTING_PHASE_STARTED', 'TEAM_SELECTED', 'GAME_RESET', 'GAME_STATE_UPDATED']
+
+              if (stateChangingEvents.includes(data.type)) {
+                console.log(`🔄 State-changing event received (${data.type}), refreshing game state`)
+                // Small delay to ensure database is updated before fetching
+                setTimeout(() => {
+                  console.log(`🔄 Executing delayed refresh for event: ${data.type}`)
+                  refreshGameState()
+                }, 200)
+              } else if (data.type !== 'CONNECTED' && data.type !== 'HEARTBEAT') {
+                console.log(`⏭️ Non-state-changing event: ${data.type}`)
+              }
             }
 
             // Call custom event handler if provided

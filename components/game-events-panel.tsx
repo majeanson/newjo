@@ -129,10 +129,12 @@ export default function GameEventsPanel({ roomId, className = "", events: extern
       case 'BETTING_COMPLETE':
       case 'BETTING_PHASE_STARTED':
         return <Activity className="h-4 w-4" />
-      case 'CARD_PLAYED':
+      case 'CARDS_CHANGED':
       case 'TRICK_COMPLETE':
+      case 'TRICK_CHANGED':
         return <AlarmClockCheck className="h-4 w-4" />
       case 'ROUND_COMPLETE':
+      case 'ROUND_CHANGED':
       case 'ROUND_SCORING_COMPLETE':
         return <Trophy className="h-4 w-4" />
       case 'GAME_RESET':
@@ -145,16 +147,20 @@ export default function GameEventsPanel({ roomId, className = "", events: extern
   const getEventColor = (eventType: string) => {
     switch (eventType) {
       case 'TEAM_SELECTED':
+      case 'TEAMS_CHANGED':
       case 'PLAYER_JOINED':
       case 'BETTING_PHASE_STARTED':
         return "bg-blue-50 border-blue-200"
       case 'BET_PLACED':
+      case 'BETS_CHANGED':
       case 'BETTING_COMPLETE':
         return "bg-green-50 border-green-200"
-      case 'CARD_PLAYED':
+      case 'CARDS_CHANGED':
       case 'TRICK_COMPLETE':
+      case 'TRICK_CHANGED':
         return "bg-purple-50 border-purple-200"
       case 'ROUND_COMPLETE':
+      case 'ROUND_CHANGED':
       case 'ROUND_SCORING_COMPLETE':
         return "bg-yellow-50 border-yellow-200"
       case 'GAME_RESET':
@@ -180,6 +186,14 @@ export default function GameEventsPanel({ roomId, className = "", events: extern
         } else {
           return `👥 ${playerName} joined Team ${event.data?.team}`
         }
+      case 'TEAMS_CHANGED':
+        if (event.data?.autoAssigned) {
+          return `🎯 Teams auto-assigned! ${event.data?.seatPattern || 'A1, B2, A3, B4'}`
+        } else if (event.data?.teamsBalanced) {
+          return `✅ ${playerName} joined Team ${event.data?.team} - Teams complete!`
+        } else {
+          return `👥 ${playerName} joined Team ${event.data?.team}`
+        }
       case 'BETTING_PHASE_STARTED':
         return "Betting phase started - all teams are balanced!"
       case 'PLAYER_READY_CHANGED':
@@ -188,12 +202,18 @@ export default function GameEventsPanel({ roomId, className = "", events: extern
         const betDisplay = event.data?.betValue === 'SKIP' ? 'Skip' : `${event.data?.betValue} tricks`
         const trumpDisplay = event.data?.trump ? ' (Trump)' : (event.data?.trump === false ? ' (No Trump)' : '')
         return `🎯 ${playerName} bet: ${betDisplay}${trumpDisplay}`
+      case 'BETS_CHANGED':
+        return `🎯 ${playerName} placed a bet`
       case 'BETTING_COMPLETE':
         return `🎲 All bets placed! Highest: ${event.data?.highestBet} tricks. Cards phase starting...`
-      case 'CARD_PLAYED':
-        return `${playerName} played ${event.data?.card}`
+      case 'CARDS_CHANGED':
+        return `🃏 ${playerName} played ${event.data?.card}`
       case 'TRICK_COMPLETE':
         return `Trick won by ${event.data?.winnerName}`
+      case 'TRICK_CHANGED':
+        return `🏆 ${event.data?.winnerName} won the trick`
+      case 'ROUND_CHANGED':
+        return `🎮 Round ${event.data?.completedRound} complete! Starting round ${event.data?.round}`
       case 'ROUND_COMPLETE':
         return `Round ${event.data?.round} completed`
       case 'ROUND_SCORING_COMPLETE':

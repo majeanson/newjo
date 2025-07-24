@@ -43,8 +43,23 @@ export default function BettingPhase({ roomId, gameState, currentUserId, onGameS
     })
   }, [gameState, currentUserId])
 
-  // Note: Removed automatic polling that was interfering with SSE connections
-  // SSE should handle real-time updates, fallback is only for emergencies
+  // Smart fallback polling during active betting (development server SSE is unreliable)
+  useEffect(() => {
+    if (!isMyTurn && onRefreshNeeded) {
+      console.log('🔄 Setting up smart fallback polling for betting phase')
+
+      // Only poll during active betting when SSE might be unreliable
+      const interval = setInterval(() => {
+        console.log('🔄 Smart fallback: Checking for betting updates')
+        onRefreshNeeded()
+      }, 2000) // Check every 2 seconds during betting
+
+      return () => {
+        console.log('🔄 Clearing betting fallback polling')
+        clearInterval(interval)
+      }
+    }
+  }, [isMyTurn, onRefreshNeeded])
 
   // Track recent bet placements for visual feedback
   useEffect(() => {

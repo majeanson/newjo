@@ -26,6 +26,10 @@ export default function CardGame({ roomId, gameState, currentUserId, onGameState
   const playedCards = Object.values(gameState.playedCards)
   const highestBet = gameState.highestBet
 
+  // Debug logging for played cards
+  console.log('🃏 CardGame render - played cards:', playedCards.length, playedCards)
+  console.log('🎯 CardGame render - current turn:', gameState.currentTurn, 'isMyTurn:', isMyTurn)
+
   const handleCardSelect = (card: GameCard) => {
     if (!isMyTurn || isPlaying) return
     setSelectedCard(card)
@@ -40,9 +44,18 @@ export default function CardGame({ roomId, gameState, currentUserId, onGameState
     try {
       const result = await playCardAction(roomId, selectedCard.id, currentUserId)
 
-      if (result.success && result.gameState) {
-        onGameStateUpdate(result.gameState)
+      if (result.success) {
+        // Don't update local state - SSE will handle the update
+        console.log('🎯 Card play successful, waiting for SSE update')
         setSelectedCard(null)
+
+        // Add fallback refresh for development environments where SSE might be unreliable
+        setTimeout(() => {
+          console.log('🔄 Card play fallback: triggering refresh')
+          if (onGameStateUpdate && result.gameState) {
+            onGameStateUpdate(result.gameState)
+          }
+        }, 1000) // 1 second fallback
       } else {
         setError("Failed to play card")
       }

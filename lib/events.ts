@@ -59,18 +59,22 @@ export type GameEvent =
 
   // Team Events
   | { type: "TEAM_SELECTED"; roomId: string; data: TeamEventData }
+  | { type: "TEAMS_CHANGED"; roomId: string; data: TeamEventData & { players: any; phase: string; teamsBalanced: boolean } }
   | { type: "BETTING_PHASE_STARTED"; roomId: string; data: BettingEventData }
 
   // Betting Events
   | { type: "BET_PLACED"; roomId: string; data: BettingEventData }
+  | { type: "BETS_CHANGED"; roomId: string; data: BettingEventData & { bets: any; currentTurn: string; phase: string } }
   | { type: "BETTING_COMPLETE"; roomId: string; data: BettingEventData }
 
   // Card Events
-  | { type: "CARD_PLAYED"; roomId: string; data: CardEventData }
+  | { type: "CARDS_CHANGED"; roomId: string; data: CardEventData & { playedCards: any; currentTurn: string; phase: string; playerHands?: any } }
   | { type: "TRICK_COMPLETE"; roomId: string; data: CardEventData }
+  | { type: "TRICK_CHANGED"; roomId: string; data: CardEventData & { playedCards: any; currentTurn: string; phase: string; wonTricks: any; winner: string; winnerName: string } }
 
   // Round Events
   | { type: "ROUND_COMPLETE"; roomId: string; data: RoundEventData }
+  | { type: "ROUND_CHANGED"; roomId: string; data: RoundEventData & { phase: string; round: number; scores: any; bets: any; currentTurn: string } }
   | { type: "ROUND_SCORING_COMPLETE"; roomId: string; data: RoundEventData }
 
   // Game State Events
@@ -90,18 +94,22 @@ export const EVENT_TYPES = {
 
   // Teams
   TEAM_SELECTED: "TEAM_SELECTED" as const,
+  TEAMS_CHANGED: "TEAMS_CHANGED" as const,
   BETTING_PHASE_STARTED: "BETTING_PHASE_STARTED" as const,
 
   // Betting
   BET_PLACED: "BET_PLACED" as const,
+  BETS_CHANGED: "BETS_CHANGED" as const,
   BETTING_COMPLETE: "BETTING_COMPLETE" as const,
 
   // Cards
-  CARD_PLAYED: "CARD_PLAYED" as const,
+  CARDS_CHANGED: "CARDS_CHANGED" as const,
   TRICK_COMPLETE: "TRICK_COMPLETE" as const,
+  TRICK_CHANGED: "TRICK_CHANGED" as const,
 
   // Rounds
   ROUND_COMPLETE: "ROUND_COMPLETE" as const,
+  ROUND_CHANGED: "ROUND_CHANGED" as const,
   ROUND_SCORING_COMPLETE: "ROUND_SCORING_COMPLETE" as const,
 
   // Game State
@@ -110,9 +118,39 @@ export const EVENT_TYPES = {
 
 export type EventType = typeof EVENT_TYPES[keyof typeof EVENT_TYPES]
 
-// In-memory event store (in production, use Redis or similar)
+// Global event store that works across serverless functions
 class EventStore {
   private listeners: Map<string, Set<(event: GameEvent) => void>> = new Map()
+  private connectionRegistry: Map<string, Set<string>> = new Map() // roomId -> Set of connectionIds
+  private instanceId: string
+
+  constructor() {
+    this.instanceId = `EventStore_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
+    console.log(`🏗️ EventStore instance created: ${this.instanceId}`)
+  }
+
+  // Register a connection for a room
+  registerConnection(roomId: string, connectionId: string) {
+    if (!this.connectionRegistry.has(roomId)) {
+      this.connectionRegistry.set(roomId, new Set())
+    }
+    this.connectionRegistry.get(roomId)!.add(connectionId)
+    console.log(`🔌 Registered connection ${connectionId} for room ${roomId}`)
+    console.log(`📊 Total connections for room ${roomId}: ${this.connectionRegistry.get(roomId)!.size}`)
+  }
+
+  // Unregister a connection for a room
+  unregisterConnection(roomId: string, connectionId: string) {
+    const roomConnections = this.connectionRegistry.get(roomId)
+    if (roomConnections) {
+      roomConnections.delete(connectionId)
+      if (roomConnections.size === 0) {
+        this.connectionRegistry.delete(roomId)
+      }
+      console.log(`🔌 Unregistered connection ${connectionId} for room ${roomId}`)
+      console.log(`📊 Remaining connections for room ${roomId}: ${roomConnections.size}`)
+    }
+  }
 
   subscribe(roomId: string, callback: (event: GameEvent) => void) {
     if (!this.listeners.has(roomId)) {
@@ -134,9 +172,16 @@ class EventStore {
 
   emit(event: GameEvent) {
     const roomListeners = this.listeners.get(event.roomId)
-    console.log(`📡 EventStore.emit: ${event.type} for room ${event.roomId}, listeners: ${roomListeners?.size || 0}`)
+    const roomConnections = this.connectionRegistry.get(event.roomId)
 
-    if (roomListeners) {
+    console.log(`📡 EventStore.emit: ${event.type} for room ${event.roomId}`)
+    console.log(`📡 Active listeners: ${roomListeners?.size || 0}`)
+    console.log(`📡 Registered connections: ${roomConnections?.size || 0}`)
+    console.log(`📡 EventStore instance ID: ${this.instanceId}`)
+    console.log(`📡 Total rooms with listeners: ${this.listeners.size}`)
+    console.log(`📡 Total rooms with connections: ${this.connectionRegistry.size}`)
+
+    if (roomListeners && roomListeners.size > 0) {
       roomListeners.forEach((callback) => {
         try {
           callback(event)
@@ -145,7 +190,10 @@ class EventStore {
         }
       })
     } else {
-      console.log(`⚠️ No listeners for room ${event.roomId}`)
+      console.log(`⚠️ No active listeners for room ${event.roomId}`)
+      if (roomConnections && roomConnections.size > 0) {
+        console.log(`⚠️ But ${roomConnections.size} connections are registered - possible listener cleanup issue`)
+      }
     }
   }
 
@@ -153,18 +201,37 @@ class EventStore {
     return this.listeners.get(roomId)?.size || 0
   }
 
+  getConnectionCount(roomId: string): number {
+    return this.connectionRegistry.get(roomId)?.size || 0
+  }
+
   // Debug method to log all active rooms and their listener counts
   logAllListeners(): void {
     console.log('📊 SSE Listener Status:')
-    if (this.listeners.size === 0) {
-      console.log('  No active rooms')
+    if (this.listeners.size === 0 && this.connectionRegistry.size === 0) {
+      console.log('  No active rooms or connections')
       return
     }
 
+    // Show listeners
     for (const [roomId, listeners] of this.listeners.entries()) {
       console.log(`  Room ${roomId}: ${listeners.size} listeners`)
+    }
+
+    // Show registered connections
+    for (const [roomId, connections] of this.connectionRegistry.entries()) {
+      console.log(`  Room ${roomId}: ${connections.size} registered connections`)
     }
   }
 }
 
-export const eventStore = new EventStore()
+// Create a global singleton instance using globalThis to ensure it persists across modules
+declare global {
+  var __eventStore: EventStore | undefined
+}
+
+if (!globalThis.__eventStore) {
+  globalThis.__eventStore = new EventStore()
+}
+
+export const eventStore = globalThis.__eventStore

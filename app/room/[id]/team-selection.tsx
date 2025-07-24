@@ -46,26 +46,24 @@ export default function TeamSelection({ roomId, gameState, currentUserId, onGame
     try {
       const result = await selectTeamAction(roomId, team, currentUserId)
 
-      if (result.success && result.gameState) {
-        onGameStateUpdate(result.gameState)
+      if (result.success) {
+        // Don't update local state - SSE will handle the update
+        console.log('🎯 Team selection successful, waiting for SSE update')
 
         // Show success toast
-        const teamACount = Object.values(result.gameState.players).filter(p => p.team === Team.A).length
-        const teamBCount = Object.values(result.gameState.players).filter(p => p.team === Team.B).length
+        toast({
+          title: `✅ Joined Team ${team}`,
+          description: `You're now on Team ${team}. Waiting for other players...`,
+          variant: "default",
+        })
 
-        if (teamACount === 2 && teamBCount === 2) {
-          toast({
-            title: "🎉 Teams Complete!",
-            description: "All teams are balanced. Moving to betting phase...",
-            variant: "default",
-          })
-        } else {
-          toast({
-            title: `✅ Joined Team ${team}`,
-            description: `You're now on Team ${team}. Waiting for other players...`,
-            variant: "default",
-          })
-        }
+        // Add fallback refresh for development environments where SSE might be unreliable
+        setTimeout(() => {
+          console.log('🔄 Team selection fallback: triggering refresh')
+          if (onGameStateUpdate && result.gameState) {
+            onGameStateUpdate(result.gameState)
+          }
+        }, 1000) // 1 second fallback
       } else {
         setError(result.error || "Failed to select team")
       }
@@ -86,8 +84,9 @@ export default function TeamSelection({ roomId, gameState, currentUserId, onGame
     try {
       const result = await autoAssignTeamsAction(roomId)
 
-      if (result.success && result.gameState) {
-        onGameStateUpdate(result.gameState)
+      if (result.success) {
+        // Don't update local state - SSE will handle the update
+        console.log('🎯 Auto-assign successful, waiting for SSE update')
 
         // Show success toast
         toast({
@@ -115,8 +114,9 @@ export default function TeamSelection({ roomId, gameState, currentUserId, onGame
     try {
       const result = await forceAutoStartAction(roomId)
 
-      if (result.success && result.gameState) {
-        onGameStateUpdate(result.gameState)
+      if (result.success) {
+        // Don't update local state - SSE will handle the update
+        console.log('🎯 Force start successful, waiting for SSE update')
 
         // Show success toast
         toast({

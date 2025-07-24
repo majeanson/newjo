@@ -42,7 +42,7 @@ export default function MasterControl({ user }: MasterControlProps) {
         ],
         recentActivity: [
           { type: "CARD_DRAWN", player: "Alice", action: "Drew K♥", timestamp: new Date() },
-          { type: "CARD_PLAYED", player: "Bob", action: "Played Q♦", timestamp: new Date() }
+          { type: "CARDS_CHANGED", player: "Bob", action: "Played Q♦", timestamp: new Date() }
         ]
       },
       {
@@ -186,7 +186,7 @@ export default function MasterControl({ user }: MasterControlProps) {
                           {event.type === 'CARD_DRAWN' && (
                             <p>Card: {event.card}</p>
                           )}
-                          {event.type === 'CARD_PLAYED' && (
+                          {event.type === 'CARDS_CHANGED' && (
                             <p>{event.playerName} played {event.card}</p>
                           )}
                           {event.type === 'PLAYER_JOINED' && (
