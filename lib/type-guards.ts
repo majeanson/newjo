@@ -9,7 +9,8 @@
  */
 
 import { GamePhase, Team, Bets, GameState, Player, Bet, Card, CardColor } from "./game-types"
-import { GameEvent, BaseEventData, TeamEventData, BettingEventData, CardEventData, RoundEventData } from "./events"
+import { BaseEventData, TeamEventData, BettingEventData, CardEventData, RoundEventData } from "./events"
+
 
 // ============================================================================
 // Basic Type Guards
@@ -19,17 +20,7 @@ import { GameEvent, BaseEventData, TeamEventData, BettingEventData, CardEventDat
  * Check if value is a valid GamePhase
  */
 export function isGamePhase(value: any): value is GamePhase {
-  const validPhases = Object.values(GamePhase)
-  const isValid = validPhases.includes(value)
-  if (!isValid) {
-    console.log('🔍 isGamePhase validation failed:', {
-      value,
-      type: typeof value,
-      validPhases,
-      includes: validPhases.includes(value)
-    })
-  }
-  return isValid
+  return Object.values(GamePhase).includes(value)
 }
 
 /**

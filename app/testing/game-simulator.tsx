@@ -11,8 +11,7 @@ import BettingPhase from "../room/[id]/betting-phase"
 import CardGame from "../room/[id]/card-game"
 import { Users, RotateCcw, Zap } from "lucide-react"
 import { forceInitializeGame, getRoomGameState } from "../actions/game-actions"
-import { createSimulatorRoom } from "../actions/testing"
-import GameEventsPanel from "@/components/game-events-panel"
+
 
 // Fixed simulator room ID
 const SIMULATOR_ROOM_ID = "simulator-room-fixed"
@@ -132,12 +131,13 @@ export default function GameSimulator() {
   const handleInitializeSimulatorRoom = async () => {
     setIsInitializingRoom(true)
     try {
-      const result = await createSimulatorRoom()
-      if (result.success && result.roomId) {
-        setRoomId(result.roomId)
-        if (result.gameState) {
-          setGameState(result.gameState)
-        }
+      // Use the fixed simulator room ID
+      setRoomId(SIMULATOR_ROOM_ID)
+
+      // Initialize game with dummy players
+      const result = await forceInitializeGame(SIMULATOR_ROOM_ID)
+      if (result.success && result.gameState) {
+        setGameState(result.gameState)
         console.log("✅ Simulator room initialized with dummy players")
       } else {
         console.error("❌ Simulator room initialization failed:", result.error)
@@ -440,8 +440,7 @@ export default function GameSimulator() {
         </CardContent>
       </Card>
 
-      {/* Game Events Panel */}
-      <GameEventsPanel roomId={roomId} className="w-full" />
+
     </div>
   )
 }

@@ -2,10 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Coins, Crown, Clock, X } from "lucide-react"
+import { Crown, Clock, X } from "lucide-react"
 import { GameState, Team, Bets, BetsNumericValue, Bet } from "@/lib/game-types"
 // Using API route instead of Server Action to prevent SSE connection closure
 import { useToast } from "@/hooks/use-toast"
@@ -169,27 +168,35 @@ export default function BettingPhase({ roomId, gameState, currentUserId, onGameS
   }
 
   return (
-    <Card className="w-full max-w-4xl mx-auto">
-      <CardHeader className="text-center">
-        <CardTitle className="flex items-center justify-center gap-2">
-          <Coins className="h-6 w-6" />
-          Betting Phase - Round {gameState.round}
-        </CardTitle>
-        <p className="text-sm text-gray-600">
-          Players bid on how many tricks they think they can win. Highest bidder starts the round.
+    <div className="w-full space-y-3">
+      {/* Compact Header */}
+      <div className="text-center p-3 bg-white/80 backdrop-blur rounded-lg border border-yellow-200">
+        <div className="flex items-center justify-center gap-2 mb-1">
+          <div className="text-lg">💰</div>
+          <span className="font-semibold text-yellow-700 text-sm">
+            Betting - Round {gameState.round}
+          </span>
+        </div>
+        <p className="text-xs text-gray-600">
+          Bid on tricks you can win! 🎯
         </p>
+
         {error && (
-          <p className="text-sm text-red-600 bg-red-50 p-2 rounded">{error}</p>
-        )}
-        {isMyTurn && (
-          <div className="flex items-center justify-center gap-2 text-green-600 bg-green-50 p-2 rounded">
-            <Clock className="h-4 w-4" />
-            <span className="font-semibold">{`It's your turn to bet!`}</span>
+          <div className="bg-red-50 border border-red-200 rounded p-2 mt-2">
+            <p className="text-red-600 text-xs">{error}</p>
           </div>
         )}
-      </CardHeader>
-      
-      <CardContent className="space-y-6">
+
+        {isMyTurn && (
+          <div className="flex items-center justify-center gap-2 text-green-700 bg-green-50 p-2 rounded border border-green-200 mt-2">
+            <Clock className="h-3 w-3" />
+            <span className="font-semibold text-xs">🎲 Your turn!</span>
+          </div>
+        )}
+      </div>
+
+      {/* Betting Content */}
+      <div className="space-y-3">
         {/* Current Highest Bet */}
         {highestBet && (
           <div className="text-center p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
@@ -398,7 +405,7 @@ export default function BettingPhase({ roomId, gameState, currentUserId, onGameS
             })}
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

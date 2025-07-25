@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -12,14 +12,26 @@ interface CardGameProps {
   gameState: GameState
   currentUserId: string
   onGameStateUpdate: (newGameState: GameState) => void
+  trickComplete?: {
+    winner: string
+    winnerName: string
+    timestamp: number
+  } | null
 }
 
 
 
-export default function CardGame({ roomId, gameState, currentUserId, onGameStateUpdate }: CardGameProps) {
+export default function CardGame({ roomId, gameState, currentUserId, onGameStateUpdate, trickComplete }: CardGameProps) {
   const [selectedCard, setSelectedCard] = useState<GameCard | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [trickWinner, setTrickWinner] = useState<{
+    winner: string
+    winnerName: string
+    points: number
+    winningCard?: GameCard
+  } | null>(null)
+  const [showTrickResult, setShowTrickResult] = useState(false)
 
   const isMyTurn = gameState.currentTurn === currentUserId
   const playerHand = gameState.playerHands[currentUserId] || []
@@ -29,6 +41,29 @@ export default function CardGame({ roomId, gameState, currentUserId, onGameState
   // Debug logging for played cards
   console.log('🃏 CardGame render - played cards:', playedCards.length, playedCards)
   console.log('🎯 CardGame render - current turn:', gameState.currentTurn, 'isMyTurn:', isMyTurn)
+
+  // Handle TRICK_COMPLETE events via props from the main SSE system
+  useEffect(() => {
+    if (trickComplete) {
+      console.log('🏆 CardGame received TRICK_COMPLETE via props:', trickComplete)
+
+      setTrickWinner({
+        winner: trickComplete.winner,
+        winnerName: trickComplete.winnerName,
+        points: 1,
+        winningCard: undefined
+      })
+      setShowTrickResult(true)
+
+      // Hide after 3 seconds
+      setTimeout(() => {
+        setShowTrickResult(false)
+        setTrickWinner(null)
+      }, 3000)
+    }
+  }, [trickComplete])
+
+
 
   const handleCardSelect = (card: GameCard) => {
     if (!isMyTurn || isPlaying) return
@@ -107,21 +142,44 @@ export default function CardGame({ roomId, gameState, currentUserId, onGameState
         {/* Current Trick */}
         <div>
           <h3 className="font-semibold mb-3">Current Trick:</h3>
+
+          {/* Trick Winner Message */}
+          {showTrickResult && trickWinner && (
+            <div className="mb-4 p-4 bg-gradient-to-r from-yellow-100 to-orange-100 border-2 border-yellow-300 rounded-lg text-center">
+              <div className="text-lg font-bold text-orange-800">
+                🏆 {trickWinner.winnerName} wins the trick!
+              </div>
+              <div className="text-sm text-orange-700">
+                +{trickWinner.points} points
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-4 justify-center min-h-[100px] items-center">
             {playedCards.length === 0 ? (
               <p className="text-gray-500">No cards played yet</p>
             ) : (
               playedCards
                 .sort((a, b) => (a.playOrder || 0) - (b.playOrder || 0))
-                .map(card => (
-                  <div key={card.id} className="text-center">
-                    <div className={`p-3 rounded-lg border-2 ${getCardColor(card.color)} min-w-[80px]`}>
-                      <div className="font-bold text-lg">{card.value}</div>
-                      <div className="text-sm capitalize">{card.color}</div>
+                .map(card => {
+                  const isWinningCard = trickWinner?.winningCard?.id === card.id
+                  return (
+                    <div key={card.id} className="text-center">
+                      <div className={`p-3 rounded-lg border-2 min-w-[80px] transition-all duration-500 ${
+                        isWinningCard
+                          ? `${getCardColor(card.color)} ring-4 ring-yellow-400 shadow-lg transform scale-110 animate-pulse`
+                          : getCardColor(card.color)
+                      }`}>
+                        <div className="font-bold text-lg">{card.value}</div>
+                        <div className="text-sm capitalize">{card.color}</div>
+                        {isWinningCard && (
+                          <div className="text-xs text-yellow-600 font-bold mt-1">WINNER!</div>
+                        )}
+                      </div>
+                      <p className="text-xs mt-1">{gameState.players[card.playerId]?.name}</p>
                     </div>
-                    <p className="text-xs mt-1">{gameState.players[card.playerId]?.name}</p>
-                  </div>
-                ))
+                  )
+                })
             )}
           </div>
         </div>

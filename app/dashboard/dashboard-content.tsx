@@ -6,9 +6,9 @@ import { signOut } from "../actions/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
-import { Users, Plus, LogOut, Home, TestTube, Monitor } from "lucide-react"
+import { Users, Plus, LogOut, Gamepad2, Sparkles } from "lucide-react"
 import Link from "next/link"
+import Navigation, { BottomNavigation } from "@/components/navigation"
 
 type User = {
   id: string
@@ -33,103 +33,118 @@ export default function DashboardContent({ user, rooms }: DashboardContentProps)
   const [joinState, joinAction, isJoining] = useActionState(joinRoom, null)
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-6xl mx-auto">
-        {/* Breadcrumb Navigation */}
-        <Breadcrumb className="mb-6">
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link href="/">
-                  <Home className="w-4 h-4" />
-                </Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>Dashboard</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-100">
+      {/* Navigation */}
+      <Navigation
+        title="🎮 Dashboard"
+        showBack={true}
+        backUrl="/"
+      />
 
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Welcome, {user.name}!</h1>
-            <p className="text-gray-600">Create a room or join an existing one</p>
+      <div className="px-4 py-6 pb-20 md:pb-6 max-w-4xl mx-auto">{/* Header */}
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <Gamepad2 className="h-8 w-8 text-purple-600" />
+            <h1 className="text-2xl font-bold text-gray-900">Welcome, {user.name}!</h1>
+            <Sparkles className="h-6 w-6 text-yellow-500" />
           </div>
-          <div className="flex gap-2">
-            <Link href="/simulator">
-              <Button variant="default">
-                <Monitor className="w-4 h-4 mr-2" />
-                Game Simulator
-              </Button>
-            </Link>
-            <Link href="/testing">
-              <Button variant="outline">
-                <TestTube className="w-4 h-4 mr-2" />
-                Multi-Tab Testing
-              </Button>
-            </Link>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => signOut()}
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              Sign Out
-            </Button>
-          </div>
+          <p className="text-gray-600">Manage your game rooms and join new games</p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8">
+        {/* Quick Actions */}
+        <div className="grid grid-cols-2 gap-4 mb-8">
+          <Link href="/testing">
+            <Card className="cursor-pointer hover:shadow-lg transition-all duration-200 border-0 bg-blue-50/80 backdrop-blur">
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl mb-2">🧪</div>
+                <h3 className="font-semibold text-blue-900">Simulator</h3>
+                <p className="text-xs text-blue-700">Test with bots</p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => signOut()}
+            className="h-auto p-4 flex flex-col items-center gap-2 border-0 bg-red-50/80 backdrop-blur hover:bg-red-100"
+          >
+            <LogOut className="w-6 h-6 text-red-600" />
+            <span className="text-red-900 font-semibold">Sign Out</span>
+          </Button>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6">
           {/* Create Room */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Plus className="w-5 h-5 mr-2" />
-                Create New Room
+          <Card className="shadow-lg border-0 bg-white/80 backdrop-blur">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <div className="text-2xl">➕</div>
+                <span className="bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+                  Create New Room
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <form action={createAction} className="space-y-4">
-                <Input name="roomName" placeholder="Enter room name" required disabled={isCreating} />
+                <Input
+                  name="roomName"
+                  placeholder="My Awesome Game Room ✨"
+                  required
+                  disabled={isCreating}
+                  className="h-12 text-lg border-2 border-green-200 focus:border-green-400 rounded-xl"
+                />
                 {createState?.error && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
                     <p className="text-red-500 text-sm">{createState.error}</p>
                   </div>
                 )}
-                <Button type="submit" disabled={isCreating} className="w-full">
-                  {isCreating ? "Creating..." : "Create Room"}
+                <Button
+                  type="submit"
+                  disabled={isCreating}
+                  className="w-full h-12 text-lg bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 rounded-xl shadow-lg"
+                >
+                  {isCreating ? "🔄 Creating..." : "🚀 Create Room"}
                 </Button>
               </form>
             </CardContent>
           </Card>
 
           {/* Available Rooms */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Users className="w-5 h-5 mr-2" />
-                Available Rooms ({rooms.length})
+          <Card className="shadow-lg border-0 bg-white/80 backdrop-blur">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <div className="text-2xl">🎮</div>
+                <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  Available Rooms ({rooms.length})
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3 max-h-96 overflow-y-auto">
                 {rooms.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">No active rooms</p>
+                  <div className="text-center py-8">
+                    <div className="text-4xl mb-3">🎯</div>
+                    <p className="text-gray-500">No active rooms</p>
+                    <p className="text-sm text-gray-400 mt-1">Create one to get started!</p>
+                  </div>
                 ) : (
                   rooms.map((room) => (
-                    <div key={room.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div key={room.id} className="flex items-center justify-between p-4 border-2 border-purple-200 rounded-xl bg-gradient-to-r from-purple-50 to-pink-50 shadow-sm">
                       <div>
-                        <h3 className="font-medium">{room.name}</h3>
-                        <p className="text-sm text-gray-500">
-                          Host: {room.host.name} • {room._count.members} members
+                        <h3 className="font-semibold text-gray-900">{room.name}</h3>
+                        <p className="text-sm text-gray-600">
+                          🎮 Host: {room.host.name} • 👥 {room._count?.members || 0} players
                         </p>
                       </div>
                       <form action={joinAction}>
                         <input type="hidden" name="roomId" value={room.id} />
-                        <Button type="submit" size="sm" disabled={isJoining}>
-                          {isJoining ? "Joining..." : "Join"}
+                        <Button
+                          type="submit"
+                          size="sm"
+                          disabled={isJoining}
+                          className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-4 py-2"
+                        >
+                          {isJoining ? "🔄 Joining..." : "🚀 Join"}
                         </Button>
                       </form>
                     </div>
@@ -137,7 +152,7 @@ export default function DashboardContent({ user, rooms }: DashboardContentProps)
                 )}
               </div>
               {joinState?.error && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-md mt-4">
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg mt-4">
                   <p className="text-red-500 text-sm">{joinState.error}</p>
                 </div>
               )}
@@ -145,6 +160,9 @@ export default function DashboardContent({ user, rooms }: DashboardContentProps)
           </Card>
         </div>
       </div>
+
+      {/* Bottom Navigation for Mobile */}
+      <BottomNavigation />
     </div>
   )
 }

@@ -342,9 +342,9 @@ export function validateGameEvent(event: any): EventValidationResult {
       break
     
     case 'BETS_CHANGED':
-      console.log('🔍 Validating BETS_CHANGED event with data:', event.data)
-      dataValidation = validateBetsChangedData(event.data)
-      console.log('🔍 BETS_CHANGED validation result:', dataValidation)
+      if (event.data) {
+        dataValidation = validateBetsChangedData(event.data)
+      }
       break
     
     case 'CARDS_CHANGED':

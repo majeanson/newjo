@@ -350,11 +350,8 @@ class EventStore implements IEventStore {
     isHealthy: boolean
     errorCount: number
   }> = new Map()
-  private healthCheckInterval: NodeJS.Timeout | null = null
-
   constructor() {
-    // Start health monitoring
-    this.startHealthMonitoring()
+    // EventStore ready
   }
 
   registerConnection(roomId: string, connectionId: string): void {
@@ -372,6 +369,15 @@ class EventStore implements IEventStore {
       isHealthy: true,
       errorCount: 0
     })
+  }
+
+  updateConnectionHeartbeat(connectionId: string): void {
+    const health = this.connectionHealth.get(connectionId)
+    if (health) {
+      health.lastHeartbeat = new Date()
+      health.isHealthy = true
+      health.errorCount = 0
+    }
   }
 
   unregisterConnection(roomId: string, connectionId: string): void {
@@ -405,28 +411,16 @@ class EventStore implements IEventStore {
   }
 
   emit(event: GameEvent): void {
-    console.log(`🎯 EventStore.emit called for room ${event.roomId}, event type: ${event.type}`)
-
-    // TEMPORARILY SKIP VALIDATION - testing real-time updates
-    console.log(`🎯 SKIPPING VALIDATION - broadcasting ${event.type} directly`)
-
     const roomListeners = this.listeners.get(event.roomId)
-    console.log(`🎯 Found ${roomListeners?.size || 0} listeners for room ${event.roomId}`)
 
     if (roomListeners && roomListeners.size > 0) {
-      console.log(`🎯 Broadcasting ${event.type} event to ${roomListeners.size} listeners`)
-      let listenerIndex = 0
       roomListeners.forEach((callback) => {
         try {
-          listenerIndex++
-          console.log(`🎯 Calling listener ${listenerIndex} for ${event.type}`)
           callback(event)
         } catch (error) {
           console.error("Error in event listener:", error)
         }
       })
-    } else {
-      console.warn(`⚠️ No listeners found for room ${event.roomId}, event ${event.type} not broadcast`)
     }
   }
 
@@ -445,52 +439,7 @@ class EventStore implements IEventStore {
     console.log(`  Tracked connections: ${this.connectionHealth.size}`)
   }
 
-  // Health monitoring methods
-  private startHealthMonitoring(): void {
-    this.healthCheckInterval = setInterval(() => {
-      this.performHealthCheck()
-    }, 30000) // Check every 30 seconds
-  }
 
-  private performHealthCheck(): void {
-    const now = new Date()
-    const staleThreshold = 60000 // 1 minute
-
-    for (const [connectionId, health] of this.connectionHealth.entries()) {
-      const timeSinceHeartbeat = now.getTime() - health.lastHeartbeat.getTime()
-
-      if (timeSinceHeartbeat > staleThreshold) {
-        health.isHealthy = false
-        health.errorCount++
-
-        // Remove stale connections after 3 failed checks
-        if (health.errorCount > 3) {
-          this.unregisterConnection(health.roomId, connectionId)
-        }
-      }
-    }
-  }
-
-  updateConnectionHeartbeat(connectionId: string): void {
-    const health = this.connectionHealth.get(connectionId)
-    if (health) {
-      health.lastHeartbeat = new Date()
-      health.isHealthy = true
-      health.errorCount = 0
-    }
-  }
-
-  getConnectionHealth(roomId?: string): Array<{
-    connectionId: string
-    roomId: string
-    connectedAt: Date
-    lastHeartbeat: Date
-    isHealthy: boolean
-    errorCount: number
-  }> {
-    const connections = Array.from(this.connectionHealth.values())
-    return roomId ? connections.filter(c => c.roomId === roomId) : connections
-  }
 
   getHealthStats(): {
     totalConnections: number

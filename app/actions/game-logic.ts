@@ -37,6 +37,7 @@ import {
   isTrickComplete,
   isRoundComplete,
   processTrickWin,
+  getWinningCard,
   calculateRoundScores,
   processRoundEnd
 } from "@/lib/game-logic"
@@ -425,36 +426,52 @@ export async function playCardAction(
     if (isTrickComplete(newGameState)) {
       console.log('🎯 Trick complete! Processing trick win...')
 
-      // Process trick win after a short delay for UI
+      // First, broadcast TRICK_COMPLETE while cards are still visible
+      const playedCards = Object.values(newGameState.playedCards).sort((a, b) => a.playOrder - b.playOrder)
+      const winningCard = getWinningCard(playedCards, newGameState.trump)
+
+      if (winningCard) {
+        const winnerBeforeProcessing = winningCard.playerId
+        await broadcastGameEvent({
+          type: 'TRICK_COMPLETE',
+          roomId,
+          userId,
+          data: {
+            winner: winnerBeforeProcessing,
+            winnerName: newGameState.players[winnerBeforeProcessing]?.name,
+            cardsInTrick: playedCards.length,
+            card: winningCard.color + '-' + winningCard.value,
+            remainingCards: Object.keys(newGameState.playerHands[winnerBeforeProcessing] || {}).length
+          },
+          timestamp: new Date()
+        })
+
+        console.log('🏆 TRICK_COMPLETE sent, processing trick normally but delaying TRICK_CHANGED...')
+      }
+
+      // Process trick win immediately (for game logic)
       newGameState = processTrickWin(newGameState)
 
-      // Broadcast granular trick change event
-      await broadcastGameEvent({
-        type: 'TRICK_CHANGED',
-        roomId,
-        userId,
-        data: {
-          playedCards: newGameState.playedCards,    // Cleared played cards
-          currentTurn: newGameState.currentTurn,    // Winner starts next trick
-          phase: newGameState.phase,               // Might change to TRICK_SCORING
-          wonTricks: newGameState.wonTricks,       // Updated trick scores
-          winner: newGameState.currentTurn,
-          winnerName: newGameState.players[newGameState.currentTurn]?.name
-        },
-        timestamp: new Date()
-      })
+      // Delay the TRICK_CHANGED broadcast to let players see the winner
+      setTimeout(async () => {
+        console.log('🔄 Now broadcasting TRICK_CHANGED to clear cards...')
 
-      // Also broadcast legacy TRICK_COMPLETE event for compatibility
-      await broadcastGameEvent({
-        type: 'TRICK_COMPLETE',
-        roomId,
-        userId,
-        data: {
-          winner: newGameState.currentTurn,
-          winnerName: newGameState.players[newGameState.currentTurn]?.name
-        },
-        timestamp: new Date()
-      })
+        // Broadcast granular trick change event (clears the cards)
+        await broadcastGameEvent({
+          type: 'TRICK_CHANGED',
+          roomId,
+          userId,
+          data: {
+            playedCards: newGameState.playedCards,    // Cleared played cards
+            currentTurn: newGameState.currentTurn,    // Winner starts next trick
+            phase: newGameState.phase,               // Might change to TRICK_SCORING
+            wonTricks: newGameState.wonTricks,       // Updated trick scores
+            winner: newGameState.currentTurn,
+            winnerName: newGameState.players[newGameState.currentTurn]?.name
+          },
+          timestamp: new Date()
+        })
+      }, 2000) // 2 second delay to let players see the winner message
 
       // Check if round is complete
       if (isRoundComplete(newGameState)) {

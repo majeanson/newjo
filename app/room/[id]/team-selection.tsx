@@ -8,6 +8,7 @@ import { Users, Crown } from "lucide-react"
 import { GameState, Team } from "@/lib/game-types"
 import { selectTeamAction, autoAssignTeamsAction, forceAutoStartAction } from "../../actions/game-actions"
 import { useToast } from "@/hooks/use-toast"
+import CollapsibleInfo from "@/components/collapsible-info"
 
 interface TeamSelectionProps {
   roomId: string
@@ -27,15 +28,7 @@ export default function TeamSelection({ roomId, gameState, currentUserId, onGame
   const unassignedPlayers = Object.values(gameState.players).filter(p => !p.team)
   const teamsAreAssigned = teamAPlayers.length === 2 && teamBPlayers.length === 2
 
-  // Debug logging
-  console.log('🎯 Team Selection Debug:', {
-    teamACount: teamAPlayers.length,
-    teamBCount: teamBPlayers.length,
-    unassignedCount: unassignedPlayers.length,
-    teamsAreAssigned,
-    gamePhase: gameState.phase,
-    allPlayers: Object.values(gameState.players).map(p => ({ name: p.name, team: p.team, seat: p.seatPosition }))
-  })
+
 
   const handleTeamSelect = async (team: Team) => {
     if (isSelecting) return
@@ -137,42 +130,39 @@ export default function TeamSelection({ roomId, gameState, currentUserId, onGame
   }
 
   return (
-    <Card className="w-full max-w-4xl mx-auto">
-      <CardHeader className="text-center">
-        <CardTitle className="flex items-center justify-center gap-2">
-          <Users className="h-6 w-6" />
-          Select Your Team
-        </CardTitle>
-        <p className="text-sm text-gray-600">
-          Choose your team to start the game. Each team needs exactly 2 players.
+    <div className="w-full space-y-3">
+      {/* Compact Header */}
+      <div className="text-center p-3 bg-white/80 backdrop-blur rounded-lg border border-purple-200">
+        <div className="flex items-center justify-center gap-2 mb-1">
+          <div className="text-lg">👥</div>
+          <span className="font-semibold text-purple-700 text-sm">Choose Your Team</span>
+        </div>
+        <p className="text-xs text-gray-600">
+          Pick Team A or B! Each needs 2 players 🎯
         </p>
 
-        {/* Auto-start indicator */}
+        {/* Compact status indicators */}
         {Object.keys(gameState.players).length < 4 && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-sm text-blue-700 text-center">
-              🎮 <strong>{Object.keys(gameState.players).length}/4 players</strong> - Game will auto-start when 4 players join!
+          <div className="bg-blue-50 border border-blue-200 rounded p-2 mt-2">
+            <p className="text-xs text-blue-700 text-center">
+              🎮 {Object.keys(gameState.players).length}/4 players - Auto-start when full!
             </p>
           </div>
         )}
 
         {Object.keys(gameState.players).length === 4 && !teamsAreAssigned && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <p className="text-sm text-green-700 text-center font-semibold mb-3">
-              ✅ 4 players online! Ready to auto-assign teams and start the game.
+          <div className="bg-green-50 border border-green-200 rounded p-2 mt-2 text-center">
+            <p className="text-xs text-green-700 font-semibold mb-2">
+              ✅ 4 players ready!
             </p>
-            <div className="text-center">
-              <Button
-                onClick={handleAutoAssign}
-                disabled={isSelecting}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                {isSelecting ? "Auto-assigning..." : "🎮 Auto-assign Teams"}
-              </Button>
-              <p className="text-xs text-green-600 mt-2">
-                Teams will be auto-assigned (A1, B2, A3, B4) and seats will be shown!
-              </p>
-            </div>
+            <Button
+              onClick={handleAutoAssign}
+              disabled={isSelecting}
+              size="sm"
+              className="bg-green-600 hover:bg-green-700 h-8 text-xs"
+            >
+              {isSelecting ? "🔄 Auto-assigning..." : "🎮 Auto-assign Teams"}
+            </Button>
           </div>
         )}
 
@@ -199,117 +189,124 @@ export default function TeamSelection({ roomId, gameState, currentUserId, onGame
         {error && (
           <p className="text-sm text-red-600 bg-red-50 p-2 rounded">{error}</p>
         )}
-      </CardHeader>
-      
-      <CardContent className="space-y-6">
-        {/* Team Selection Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Team A */}
-          <div className="border-2 border-red-200 rounded-lg p-6 bg-red-50">
-            <div className="text-center mb-4">
-              <h3 className="text-xl font-bold text-red-700 flex items-center justify-center gap-2">
-                <Crown className="h-5 w-5" />
-                Team A
-              </h3>
-              <p className="text-sm text-red-600">
-                {teamAPlayers.length}/2 players
-              </p>
+      </div>
+
+      {/* Compact Team Selection */}
+      <div className="space-y-3">
+        <div className="grid grid-cols-1 gap-3">
+          {/* Team A - Compact */}
+          <div className="border-2 border-red-200 rounded-lg p-3 bg-gradient-to-r from-red-50 to-pink-50">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="text-lg">🔴</div>
+                <span className="font-bold text-red-700 text-sm">Team A</span>
+                <Badge variant="outline" className="text-red-600 border-red-300 text-xs">
+                  {teamAPlayers.length}/2
+                </Badge>
+              </div>
             </div>
 
-            <div className="space-y-3 mb-4 min-h-[120px]">
+            {/* Compact player list */}
+            <div className="space-y-1 mb-3 min-h-[60px]">
               {teamAPlayers.map(player => (
-                <div key={player.id} className="flex items-center justify-between bg-white p-3 rounded border">
-                  <span className="font-medium">{player.name}</span>
+                <div key={player.id} className="flex items-center justify-between bg-white/60 p-2 rounded text-xs">
+                  <span className="font-medium text-gray-900 truncate">{player.name}</span>
                   {player.id === currentUserId && (
-                    <Badge variant="default">You</Badge>
+                    <Badge className="bg-red-600 text-white text-xs">You</Badge>
                   )}
                 </div>
               ))}
-              
+
               {Array.from({ length: 2 - teamAPlayers.length }).map((_, i) => (
-                <div key={i} className="flex items-center justify-center bg-white/50 p-3 rounded border-dashed border-2 border-red-200">
-                  <span className="text-gray-400">Empty slot</span>
+                <div key={i} className="flex items-center justify-center bg-white/30 p-2 rounded border-dashed border border-red-300">
+                  <span className="text-red-400 text-xs">Waiting...</span>
                 </div>
               ))}
             </div>
 
-            <Button 
+            <Button
               onClick={() => handleTeamSelect(Team.A)}
               disabled={
-                isSelecting || 
-                teamAPlayers.length >= 2 || 
+                isSelecting ||
+                teamAPlayers.length >= 2 ||
                 currentPlayer?.team === Team.A
               }
-              variant={currentPlayer?.team === Team.A ? "default" : "outline"}
-              className="w-full"
-              size="lg"
+              size="sm"
+              className={`w-full h-8 text-xs font-semibold rounded transition-all ${
+                currentPlayer?.team === Team.A
+                  ? "bg-red-600 hover:bg-red-700 text-white"
+                  : "border border-red-300 text-red-700 hover:bg-red-50 bg-white"
+              }`}
             >
-              {isSelecting ? "Selecting..." : 
-               currentPlayer?.team === Team.A ? "✓ Selected" : 
-               teamAPlayers.length >= 2 ? "Team Full" : "Join Team A"}
+              {isSelecting ? "🔄 Joining..." :
+               currentPlayer?.team === Team.A ? "✅ On Team A!" :
+               teamAPlayers.length >= 2 ? "😔 Full" : "🚀 Join A"}
             </Button>
           </div>
 
-          {/* Team B */}
-          <div className="border-2 border-blue-200 rounded-lg p-6 bg-blue-50">
-            <div className="text-center mb-4">
-              <h3 className="text-xl font-bold text-blue-700 flex items-center justify-center gap-2">
-                <Crown className="h-5 w-5" />
-                Team B
-              </h3>
-              <p className="text-sm text-blue-600">
-                {teamBPlayers.length}/2 players
-              </p>
+          {/* Team B - Compact */}
+          <div className="border-2 border-blue-200 rounded-lg p-3 bg-gradient-to-r from-blue-50 to-indigo-50">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="text-lg">🔵</div>
+                <span className="font-bold text-blue-700 text-sm">Team B</span>
+                <Badge variant="outline" className="text-blue-600 border-blue-300 text-xs">
+                  {teamBPlayers.length}/2
+                </Badge>
+              </div>
             </div>
 
-            <div className="space-y-3 mb-4 min-h-[120px]">
+            {/* Compact player list */}
+            <div className="space-y-1 mb-3 min-h-[60px]">
               {teamBPlayers.map(player => (
-                <div key={player.id} className="flex items-center justify-between bg-white p-3 rounded border">
-                  <span className="font-medium">{player.name}</span>
+                <div key={player.id} className="flex items-center justify-between bg-white/60 p-2 rounded text-xs">
+                  <span className="font-medium text-gray-900 truncate">{player.name}</span>
                   {player.id === currentUserId && (
-                    <Badge variant="default">You</Badge>
+                    <Badge className="bg-blue-600 text-white text-xs">You</Badge>
                   )}
                 </div>
               ))}
-              
+
               {Array.from({ length: 2 - teamBPlayers.length }).map((_, i) => (
-                <div key={i} className="flex items-center justify-center bg-white/50 p-3 rounded border-dashed border-2 border-blue-200">
-                  <span className="text-gray-400">Empty slot</span>
+                <div key={i} className="flex items-center justify-center bg-white/30 p-2 rounded border-dashed border border-blue-300">
+                  <span className="text-blue-400 text-xs">Waiting...</span>
                 </div>
               ))}
             </div>
 
-            <Button 
+            <Button
               onClick={() => handleTeamSelect(Team.B)}
               disabled={
-                isSelecting || 
-                teamBPlayers.length >= 2 || 
+                isSelecting ||
+                teamBPlayers.length >= 2 ||
                 currentPlayer?.team === Team.B
               }
-              variant={currentPlayer?.team === Team.B ? "default" : "outline"}
-              className="w-full"
-              size="lg"
+              size="sm"
+              className={`w-full h-8 text-xs font-semibold rounded transition-all ${
+                currentPlayer?.team === Team.B
+                  ? "bg-blue-600 hover:bg-blue-700 text-white"
+                  : "border border-blue-300 text-blue-700 hover:bg-blue-50 bg-white"
+              }`}
             >
-              {isSelecting ? "Selecting..." : 
-               currentPlayer?.team === Team.B ? "✓ Selected" : 
-               teamBPlayers.length >= 2 ? "Team Full" : "Join Team B"}
+              {isSelecting ? "🔄 Joining..." :
+               currentPlayer?.team === Team.B ? "✅ On Team B!" :
+               teamBPlayers.length >= 2 ? "😔 Full" : "🚀 Join B"}
             </Button>
           </div>
         </div>
 
-        {/* Unassigned Players */}
+        {/* Compact Unassigned Players */}
         {unassignedPlayers.length > 0 && (
-          <div className="border rounded-lg p-4 bg-gray-50">
-            <h4 className="font-semibold mb-2 text-gray-700">Waiting for Team Selection:</h4>
-            <div className="flex flex-wrap gap-2">
+          <CollapsibleInfo title="Unassigned Players" variant="info">
+            <div className="flex flex-wrap gap-1">
               {unassignedPlayers.map(player => (
-                <Badge key={player.id} variant="secondary">
+                <Badge key={player.id} variant="secondary" className="text-xs">
                   {player.name}
                   {player.id === currentUserId && " (You)"}
                 </Badge>
               ))}
             </div>
-          </div>
+          </CollapsibleInfo>
         )}
 
         {/* Seat Assignment Display */}
@@ -348,22 +345,28 @@ export default function TeamSelection({ roomId, gameState, currentUserId, onGame
           </div>
         )}
 
-        {/* Progress Indicator */}
-        <div className="text-center">
-          <div className="flex justify-center items-center gap-4 mb-2">
-            <div className={`w-3 h-3 rounded-full ${teamAPlayers.length === 2 ? 'bg-green-500' : 'bg-gray-300'}`} />
-            <span className="text-sm">Team A Complete</span>
-            <div className={`w-3 h-3 rounded-full ${teamBPlayers.length === 2 ? 'bg-green-500' : 'bg-gray-300'}`} />
-            <span className="text-sm">Team B Complete</span>
-          </div>
+        {/* Compact Team Status */}
+        {(teamAPlayers.length === 2 || teamBPlayers.length === 2) && (
+          <CollapsibleInfo title="Team Status" variant="stats" defaultOpen={true}>
+            <div className="flex justify-center items-center gap-3 text-xs">
+              <div className="flex items-center gap-1">
+                <div className={`w-2 h-2 rounded-full ${teamAPlayers.length === 2 ? 'bg-green-500' : 'bg-gray-300'}`} />
+                <span>Team A {teamAPlayers.length === 2 ? '✓' : `${teamAPlayers.length}/2`}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className={`w-2 h-2 rounded-full ${teamBPlayers.length === 2 ? 'bg-green-500' : 'bg-gray-300'}`} />
+                <span>Team B {teamBPlayers.length === 2 ? '✓' : `${teamBPlayers.length}/2`}</span>
+              </div>
+            </div>
 
-          {!teamsAreAssigned && teamAPlayers.length === 2 && teamBPlayers.length === 2 && (
-            <p className="text-green-600 font-semibold">
-              ✓ Teams are ready! Seats assigned automatically (A1, B2, A3, B4). Moving to betting...
-            </p>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+            {!teamsAreAssigned && teamAPlayers.length === 2 && teamBPlayers.length === 2 && (
+              <p className="text-green-600 font-semibold text-xs text-center mt-2">
+                ✓ Teams ready! Moving to betting...
+              </p>
+            )}
+          </CollapsibleInfo>
+        )}
+      </div>
+    </div>
   )
 }

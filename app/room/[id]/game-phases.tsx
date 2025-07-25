@@ -17,9 +17,14 @@ interface GamePhasesProps {
   gameState: GameState
   currentUserId: string
   onRefreshNeeded?: () => void
+  trickComplete?: {
+    winner: string
+    winnerName: string
+    timestamp: number
+  } | null
 }
 
-export default function GamePhases({ roomId, gameState: initialGameState, currentUserId, onRefreshNeeded }: GamePhasesProps) {
+export default function GamePhases({ roomId, gameState: initialGameState, currentUserId, onRefreshNeeded, trickComplete }: GamePhasesProps) {
   // Local state for immediate UI updates
   const [localGameState, setLocalGameState] = useState<GameState | null>(null)
 
@@ -202,6 +207,7 @@ export default function GamePhases({ roomId, gameState: initialGameState, curren
             gameState={gameState}
             currentUserId={currentUserId}
             onGameStateUpdate={handleGameStateUpdate}
+            trickComplete={trickComplete}
           />
         )}
 
