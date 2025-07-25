@@ -55,7 +55,7 @@ export default function GamePhases({ roomId, gameState: initialGameState, curren
     })
 
     // Don't use local state for any actions - SSE handles all updates now
-    console.log('🎯 All phases now use granular SSE updates instead of local state')
+    console.log('🎯 Alll phases now use granular SSE updates instead of local state')
 
     // Optional: Add a small fallback delay for non-SSE environments
     if (onRefreshNeeded) {
