@@ -210,6 +210,20 @@ export default function BettingPhase({ roomId, gameState, currentUserId, onGameS
           </div>
         )}
 
+        {/* Round Info */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+          <div className="text-center">
+            <h3 className="font-semibold text-blue-800">Round {gameState.round}</h3>
+            <p className="text-sm text-blue-600">
+              Dealer: <span className="font-medium">{gameState.players[gameState.dealer]?.name}</span>
+              {gameState.dealer === currentUserId && " (You)"}
+            </p>
+            <p className="text-xs text-blue-500 mt-1">
+              Betting order: First Better → Others → Dealer (bets last)
+            </p>
+          </div>
+        </div>
+
         {/* Betting Order */}
         <div className="space-y-3">
           <h3 className="font-semibold text-center">Betting Order:</h3>
@@ -237,9 +251,16 @@ export default function BettingPhase({ roomId, gameState, currentUserId, onGameS
                       <div className={`font-medium ${getPlayerTeamColor(playerId)}`}>
                         {player.name}
                         {isCurrentUser && " (You)"}
+                        {playerId === gameState.dealer && (
+                          <span title="Dealer (bets last)">
+                            <Crown className="inline h-4 w-4 ml-1 text-yellow-600" />
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-gray-500">
                         Team {player.team} • Seat {(player.seatPosition || 0) + 1}
+                        {playerId === gameState.dealer && " • Dealer"}
+                        {playerId === gameState.starter && " • First Better"}
                       </div>
                     </div>
                   </div>

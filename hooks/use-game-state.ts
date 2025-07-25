@@ -10,8 +10,9 @@
 
 import { useState, useCallback, useEffect } from "react"
 import { GameState } from "@/lib/game-types"
+import { EVENT_TYPES } from "@/lib/events"
 
-interface GameEvent {
+interface LocalGameEvent {
   type: string
   data?: any
   timestamp: string
@@ -20,9 +21,23 @@ interface GameEvent {
 interface UseGameStateOptions {
   roomId: string
   initialGameState?: GameState | null
-  onGameEvent?: (event: GameEvent) => void
+  onGameEvent?: (event: LocalGameEvent) => void
   onTrickComplete?: (winner: string, winnerName: string) => void
 }
+
+// Events that should trigger a game state refresh
+const REFRESH_TRIGGERING_EVENTS = [
+  EVENT_TYPES.TEAMS_CHANGED,
+  EVENT_TYPES.BETS_CHANGED,
+  EVENT_TYPES.BETTING_COMPLETE,
+  EVENT_TYPES.CARDS_CHANGED,
+  EVENT_TYPES.TRICK_COMPLETE,
+  EVENT_TYPES.TRICK_CHANGED,
+  EVENT_TYPES.ROUND_CHANGED,
+  EVENT_TYPES.ROUND_COMPLETE,
+  EVENT_TYPES.GAME_STATE_UPDATED,
+  EVENT_TYPES.GAME_RESET,
+] as const
 
 export function useGameState({ roomId, initialGameState }: UseGameStateOptions) {
   const [gameState, setGameState] = useState<GameState | null>(initialGameState || null)
@@ -97,13 +112,7 @@ export function useGameState({ roomId, initialGameState }: UseGameStateOptions) 
           console.log('📡 SSE Event received:', data.type, data)
 
           // Handle specific events that need immediate game state refresh
-          if (data.type === 'TEAMS_CHANGED' ||
-              data.type === 'BETS_CHANGED' ||
-              data.type === 'CARDS_CHANGED' ||
-              data.type === 'TRICK_COMPLETE' ||
-              data.type === 'TRICK_CHANGED' ||
-              data.type === 'GAME_RESET') {
-
+          if (REFRESH_TRIGGERING_EVENTS.includes(data.type as any)) {
             console.log('🔄 Refreshing game state due to SSE event:', data.type)
             // Small delay to ensure server state is updated
             setTimeout(() => {

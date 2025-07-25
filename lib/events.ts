@@ -215,6 +215,7 @@ export const EVENT_TYPES = {
 
   // Game State
   GAME_STATE_UPDATED: "GAME_STATE_UPDATED" as const,
+  GAME_RESET: "GAME_RESET" as const,
 } as const
 
 export type EventType = typeof EVENT_TYPES[keyof typeof EVENT_TYPES]
